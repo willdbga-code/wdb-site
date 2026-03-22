@@ -1,0 +1,3 @@
+{
+  "response": "Olá! Seja muito bem-vindo(a) ao William Del Barrio Fine Art Studio. É um prazer tê-lo(a) conosco.\n\nComo posso auxiliá-lo(a) hoje a criar suas memórias com a arte da fotografia? Nossas experiências são desenhadas para celebrar momentos únicos e eternizá-los com elegância."
+}
