@@ -40,7 +40,7 @@ export default function ClientChat() {
     try {
       await addDoc(collection(db, "messages"), {
         userId: user.uid,
-        userName: user.full_name || "Cliente",
+        userName: user.fullName || "Cliente",
         text: msgText,
         sender: "client",
         timestamp: new Date().toISOString()
