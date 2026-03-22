@@ -52,7 +52,7 @@ export default function ClientChat() {
          setTimeout(async () => {
              await addDoc(collection(db, "messages"), {
                userId: user.uid,
-               userName: user.full_name || "Cliente",
+               userName: user.fullName || "Cliente",
                text: "Olá! No momento o William está fotografando ou em sessão de edição. 📸 Pode deixar sua mensagem detalhada aqui que ele lerá e responderá o mais breve possível!",
                sender: "admin",
                timestamp: new Date().toISOString()
