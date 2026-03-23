@@ -108,11 +108,14 @@ export default function LeadBotPopup() {
         addBotMessage(botText || "Perfeito! Tudo anotado.", undefined, 0);
         
         setTimeout(() => {
-          addBotMessage("Transferindo você e seu resumo para o WhatsApp do William. Um momento...", undefined, 1000);
+          const welcomeMsg = encodeURIComponent(`Olá William! Falei com a sua IA no site e gostaria de focar no meu agendamento.\n\n*Resumo do Pedido:*\n${payload}`);
+          const waUrl = `https://wa.me/5512988130316?text=${welcomeMsg}`;
+          
+          addBotMessage(`Transferindo você para o WhatsApp do William... Se a tela não abrir, [clique aqui para continuar](${waUrl})`, undefined, 1000);
+          
           setTimeout(() => {
-             const welcomeMsg = encodeURIComponent(`Olá William! Falei com a sua IA no site e gostaria de focar no meu agendamento.\n\n*Resumo do Pedido:*\n${payload}`);
-             window.open(`https://wa.me/5512988130316?text=${welcomeMsg}`, "_blank");
-             setIsOpen(false);
+             try { window.open(waUrl, "_blank"); } catch (e) {}
+             // Não fechamos mais o chat (setIsOpen(false)) imediatamente para que o usuário consiga ver o link caso o popup seja bloqueado.
           }, 3500);
         }, 1500);
       } else {

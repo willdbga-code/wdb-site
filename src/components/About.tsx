@@ -72,14 +72,17 @@ export default function About() {
               "Tudo o que ouvimos é uma opinião, não um fato. Tudo o que vemos é uma perspectiva, não a verdade."
             </p>
             <p>
+              Sou William Del Barrio, fotógrafo há 4 anos e estudante de Fotografia pela Universidade Cruzeiro do Sul. Minha paixão primordial reside nos limites do impalpável — a fotografia conceitual e comercial, onde o imperfeccionismo encontra a precisão estética através da minha especialidade em manipulação de imagem fina e Photoshop.
+            </p>
+            <p>
               O verdadeiro profissionalismo não grita. Ele se estabelece. 
-              A sua competência técnica pode ser inquestionável no mundo físico, mas a internet é um ambiente totalmente visual.
+              A sua competência técnica pode ser inquestionável no mundo físico, mas a internet é um ambiente impiedosamente visual. 
             </p>
             <p>
-              Com uma base sólida no essencialismo, meu trabalho não é criar um personagem para você. É remover o ruído digital e colocar um holofote na sua essência mais potente, traduzindo sua inteligência em imagem.
+              Com uma base sólida no essencialismo, meu ofício não é criar um personagem para você. É remover o ruído digital e colocar um holofote na sua essência mais potente. Acredito visceralmente que <strong className="text-white font-normal">uma marca forte constitui um império forte</strong>.
             </p>
             <p>
-              Através de direção de arte minuciosa e luz estratégica (Chiaroscuro), capturamos a sua versão de maior integridade e autoridade.
+              Através de uma direção de arte minuciosa e da luz estratégica do Chiaroscuro, capturamos a sua versão de maior integridade, traduzindo sua inteligência em imagem e autoridade inquestionável.
             </p>
           </div>
           

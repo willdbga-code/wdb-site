@@ -53,7 +53,7 @@ export default function ServicesPreview() {
                 <img 
                   src="https://images.unsplash.com/photo-1544257134-8bba23eddf82?q=80&w=2000&auto=format&fit=crop" 
                   alt="Casamentos"
-                  className="w-full h-full object-cover grayscale-[80%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-[1.5s] ease-out"
+                  className="w-full h-full object-cover md:grayscale-[80%] md:group-hover:grayscale-0 md:group-hover:scale-105 transition-all duration-[1.5s] ease-out"
                 />
              </motion.div>
              <div className="w-full md:w-2/5 flex flex-col justify-center">
@@ -81,7 +81,7 @@ export default function ServicesPreview() {
                 <img 
                   src="https://images.unsplash.com/photo-1616683693504-3ea7e9ad6ece?q=80&w=2000&auto=format&fit=crop" 
                   alt="Ensaios Editoriais"
-                  className="w-full h-full object-cover grayscale-[80%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-[1.5s] ease-out"
+                  className="w-full h-full object-cover md:grayscale-[80%] md:group-hover:grayscale-0 md:group-hover:scale-105 transition-all duration-[1.5s] ease-out"
                 />
              </motion.div>
              <div className="w-full md:w-2/5 flex flex-col justify-center items-start md:items-end text-left md:text-right">
@@ -109,7 +109,7 @@ export default function ServicesPreview() {
                 <img 
                   src="https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=2000&auto=format&fit=crop" 
                   alt="Consultoria de Imagem"
-                  className="w-full h-full object-cover grayscale-[80%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-[1.5s] ease-out"
+                  className="w-full h-full object-cover md:grayscale-[80%] md:group-hover:grayscale-0 md:group-hover:scale-105 transition-all duration-[1.5s] ease-out"
                 />
              </motion.div>
              <div className="w-full md:w-3/5 flex flex-col justify-center">

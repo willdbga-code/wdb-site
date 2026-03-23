@@ -75,7 +75,7 @@ export default function Portfolio() {
                             transition={{ duration: 0.8, delay: i * 0.1 }}
                             className="relative w-[85vw] md:w-[60vw] lg:w-[40vw] aspect-[16/9] overflow-hidden group bg-surface"
                         >
-                            <img src={item.url} alt={item.title} className="w-full h-full object-cover grayscale-[60%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-[1.5s]" />
+                            <img src={item.url} alt={item.title} className="w-full h-full object-cover md:grayscale-[60%] md:group-hover:grayscale-0 md:group-hover:scale-105 transition-all duration-[1.5s]" />
                         </motion.div>
                     ))}
                 </div>
@@ -102,7 +102,7 @@ export default function Portfolio() {
                             transition={{ duration: 0.8, delay: i * 0.1 }}
                             className="relative w-[70vw] md:w-[40vw] lg:w-[30vw] aspect-[3/4] overflow-hidden group bg-surface"
                         >
-                            <img src={item.url} alt={item.title} className="w-full h-full object-cover grayscale-[80%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-[1.5s]" />
+                            <img src={item.url} alt={item.title} className="w-full h-full object-cover md:grayscale-[80%] md:group-hover:grayscale-0 md:group-hover:scale-105 transition-all duration-[1.5s]" />
                         </motion.div>
                     ))}
                 </div>
@@ -129,7 +129,7 @@ export default function Portfolio() {
                             transition={{ duration: 0.8, delay: i * 0.1 }}
                             className="relative w-[70vw] md:w-[40vw] lg:w-[30vw] aspect-[3/4] overflow-hidden group bg-surface"
                         >
-                            <img src={item.url} alt={item.title} className="w-full h-full object-cover grayscale-[80%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-[1.5s]" />
+                            <img src={item.url} alt={item.title} className="w-full h-full object-cover md:grayscale-[80%] md:group-hover:grayscale-0 md:group-hover:scale-105 transition-all duration-[1.5s]" />
                         </motion.div>
                     ))}
                 </div>
