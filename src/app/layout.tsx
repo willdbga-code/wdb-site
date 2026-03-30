@@ -17,8 +17,8 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "William Del Barrio | Fotografia de Luxo",
-  description: "Plataforma de portfólio e área exclusiva para clientes do fotógrafo William Del Barrio.",
+  title: "W d B | Editorial",
+  description: "William del Barrio Editorial Photography",
 };
 
 export default function RootLayout({

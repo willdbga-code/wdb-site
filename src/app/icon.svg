@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#080808" rx="120" />
+    <text x="110" y="315" font-family="'Times New Roman', Times, serif" font-size="220" fill="#ffffff" text-anchor="middle" letter-spacing="-5">W</text>
+    <text x="256" y="315" font-family="'Times New Roman', Times, serif" font-size="220" font-style="italic" fill="#C19A5B" text-anchor="middle">d</text>
+    <text x="402" y="315" font-family="'Times New Roman', Times, serif" font-size="220" fill="#ffffff" text-anchor="middle">B</text>
+</svg>
