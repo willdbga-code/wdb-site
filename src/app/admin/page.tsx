@@ -39,9 +39,14 @@ export default function AdminHome() {
         <div className="flex py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-           <div className="p-6 bg-surface border border-border">
-              <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2"><Folders className="w-4 h-4"/> Fotos no Cógigo</h3>
-              <p className="text-4xl font-serif text-white">{stats.photos}</p>
+           <div className="p-6 bg-surface border border-border flex flex-col justify-between">
+              <div>
+                 <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2"><Folders className="w-4 h-4"/> Fotos em Nuvem</h3>
+                 <p className="text-4xl font-serif text-white mb-4">{stats.photos}</p>
+              </div>
+              <a href="/admin/storage" className="text-xs uppercase tracking-widest text-primary hover:text-white transition-colors">
+                 Gerenciar Armazenamento &rarr;
+              </a>
            </div>
            <div className="p-6 bg-surface border border-border">
               <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-4 flex items-center gap-2"><Users className="w-4 h-4"/> Clientes Cadastrados</h3>

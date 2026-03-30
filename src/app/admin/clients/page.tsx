@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Mail, Phone, Loader2 } from "lucide-react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { Users, Mail, Phone, Loader2, Copy, Trash2, CheckCircle2 } from "lucide-react";
+import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function AdminClients() {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -24,6 +25,27 @@ export default function AdminClients() {
     fetchClients();
   }, []);
 
+  const handleDeleteClient = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Tem certeza que deseja apagar os dados deste cliente do sistema? Isso não desvinculará galerias já criadas, mas ele perderá o acesso e sairá da lista de leads.")) return;
+    try {
+      await deleteDoc(doc(db, "users", id));
+      setClients(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error("Erro ao deletar cliente:", err);
+      alert("Falha ao apagar cliente.");
+    }
+  };
+
+  const handleExportLeads = () => {
+    if (clients.length === 0) return;
+    const leadsString = clients.map(c => `${c.full_name || 'Sem Nome'} - ${c.email} - ${c.phone || 'Sem Telefone'}`).join('\n');
+    navigator.clipboard.writeText(leadsString);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+
   return (
     <div className="p-8 md:p-16">
       <div className="flex justify-between items-end mb-12">
@@ -32,9 +54,19 @@ export default function AdminClients() {
           <p className="text-gray-400 font-light text-sm tracking-wide">Gerencie os cadastros e dados de contato que chegam pelo site.</p>
         </div>
         {!loading && (
-          <div className="flex items-center gap-2 text-primary font-serif italic text-xl border border-primary px-4 py-2">
-            <Users className="w-5 h-5 mr-2" />
-            {clients.length} Total
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleExportLeads}
+              className="flex items-center gap-2 bg-transparent border border-border text-white hover:bg-white hover:text-black hover:border-white transition-colors px-4 py-2 text-xs uppercase tracking-widest"
+              title="Copiar Nome, Email e Telefone"
+            >
+              {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Copiado!" : "Exportar Leads"}
+            </button>
+            <div className="flex items-center gap-2 text-primary font-serif italic text-xl border border-primary px-4 py-2">
+              <Users className="w-5 h-5 mr-2" />
+              {clients.length} Total
+            </div>
           </div>
         )}
       </div>
@@ -77,8 +109,19 @@ export default function AdminClients() {
                        <Phone className="w-3 h-3 text-primary" /> {client.phone || "Não informado"}
                     </div>
                   </td>
-                  <td className="p-6 text-right text-gray-500 text-xs font-mono">
-                    {client.created_at ? new Date(client.created_at).toLocaleDateString() : "-"}
+                  <td className="p-6 text-right">
+                    <div className="flex items-center justify-end gap-4">
+                      <span className="text-gray-500 text-xs font-mono">
+                        {client.created_at ? new Date(client.created_at).toLocaleDateString() : "-"}
+                      </span>
+                      <button 
+                         onClick={(e) => handleDeleteClient(client.id, e)}
+                         className="text-gray-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                         title="Excluir Cliente"
+                      >
+                         <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

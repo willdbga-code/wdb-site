@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { User, Image as ImageIcon, MessageSquare, LogOut } from "lucide-react";
+import { User, Image as ImageIcon, MessageSquare, LogOut, Package } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -45,6 +45,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
             <Link href="/dashboard/gallery" className="flex items-center gap-3 text-sm tracking-widest uppercase text-gray-400 hover:text-white transition-colors">
               <ImageIcon className="w-4 h-4" /> Galerias
+            </Link>
+            <Link href="/dashboard/deliveries" className="flex items-center gap-3 text-sm tracking-widest uppercase text-gray-400 hover:text-white transition-colors">
+              <Package className="w-4 h-4" /> Minhas Entregas
             </Link>
             <Link href="/dashboard/chat" className="flex items-center gap-3 text-sm tracking-widest uppercase text-gray-400 hover:text-white transition-colors">
               <MessageSquare className="w-4 h-4" /> Mensagens

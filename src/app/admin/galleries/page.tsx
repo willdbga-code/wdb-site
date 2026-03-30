@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UploadCloud, Copy, CheckCircle2, Loader2, Trash2, Plus, Users, FolderOpen } from "lucide-react";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, addDoc, getDocs, query, where, deleteDoc, doc, orderBy } from "firebase/firestore";
+import { UploadCloud, Copy, CheckCircle2, Loader2, Trash2, Plus, Users, FolderOpen, ArrowLeft } from "lucide-react";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { collection, addDoc, getDocs, query, where, deleteDoc, doc, orderBy, updateDoc } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 
 export default function AdminGalleries() {
@@ -24,6 +24,8 @@ export default function AdminGalleries() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [loading, setLoading] = useState(true);
+  
+  const [deliveryLink, setDeliveryLink] = useState("");
 
   // Fetch initial data (galleries & clients)
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function AdminGalleries() {
 
   const handleSelectGallery = (g: any) => {
       setSelectedGallery(g);
+      setDeliveryLink(g.deliveryLink || "");
       setPhotos([]); // Clear while loading
       loadPhotosForGallery(g.id);
   };
@@ -154,13 +157,41 @@ export default function AdminGalleries() {
     setTimeout(() => setCopiedWin(false), 2000);
   };
 
+  const handleDeletePhoto = async (photo: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Tem certeza que deseja apagar esta foto definitivamente? O arquivo será apagado para economizar espaço.")) return;
+    
+    try {
+      await deleteDoc(doc(db, "photos", photo.id));
+      const storageRef = ref(storage, photo.url);
+      await deleteObject(storageRef);
+      setPhotos(prev => prev.filter(p => p.id !== photo.id));
+    } catch (err) {
+      console.error("Erro ao apagar foto:", err);
+      alert("Não foi possível excluir a imagem. Verifique o console.");
+    }
+  };
+
+  const handleSaveDeliveryLink = async () => {
+    if (!selectedGallery) return;
+    try {
+      await updateDoc(doc(db, "galleries", selectedGallery.id), { deliveryLink });
+      setSelectedGallery({ ...selectedGallery, deliveryLink });
+      fetchData(); // atualiza a lista de galerias lateral
+      alert("Link de entrega salvo com sucesso!");
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao salvar link.");
+    }
+  };
+
   if (loading) return <div className="p-16 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-80px)] md:h-screen overflow-hidden bg-background">
       
       {/* Esquerda: Lista de Galerias e Criador */}
-      <div className="w-full lg:w-1/3 border-r border-border bg-surface flex flex-col shrink-0">
+      <div className={`${selectedGallery ? 'hidden lg:flex' : 'flex'} w-full lg:w-1/3 border-r border-border bg-surface flex-col shrink-0 overflow-y-auto`}>
          <div className="p-6 border-b border-border">
             <h1 className="text-2xl font-serif text-white mb-2">Administrar Galerias</h1>
             <p className="text-gray-400 font-light text-xs tracking-wide">Crie álbuns e libere acessos por cliente.</p>
@@ -220,7 +251,7 @@ export default function AdminGalleries() {
          </div>
 
          {/* Lista de Galerias */}
-         <div className="flex-1 overflow-y-auto">
+         <div className="flex-1 overflow-y-visible pb-24 lg:pb-0">
             {galleries.length === 0 && <div className="p-6 text-gray-500 text-xs text-center uppercase tracking-widest mt-4">Nenhuma galeria criada.</div>}
             {galleries.map(g => (
                <div 
@@ -244,16 +275,24 @@ export default function AdminGalleries() {
 
       {/* Direita: Gestão da Galeria Selecionada */}
       {selectedGallery ? (
-         <div className="flex-1 flex flex-col overflow-hidden">
+         <div className="flex-1 flex flex-col h-full overflow-hidden">
             {/* Cabecalho da Galeria */}
             <div className="p-6 border-b border-border bg-surface flex flex-col md:flex-row justify-between md:items-center gap-4">
-               <div>
-                  <h2 className="text-2xl font-serif text-white flex items-center gap-3">
-                     <FolderOpen className="w-6 h-6 text-primary" /> {selectedGallery.title}
-                  </h2>
-                  <p className="text-gray-400 text-sm mt-1">
-                     Uploads para o cliente <strong>{selectedGallery.clientName}</strong>
-                  </p>
+               <div className="flex items-center gap-4">
+                  <button 
+                     onClick={() => setSelectedGallery(null)}
+                     className="lg:hidden p-2 -ml-2 shrink-0 text-gray-400 hover:text-white transition-colors"
+                  >
+                     <ArrowLeft className="w-6 h-6" />
+                  </button>
+                  <div>
+                     <h2 className="text-2xl font-serif text-white flex items-center gap-3">
+                        <FolderOpen className="w-6 h-6 text-primary shrink-0" /> <span className="truncate">{selectedGallery.title}</span>
+                     </h2>
+                     <p className="text-gray-400 text-sm mt-1">
+                        Uploads para o cliente <strong>{selectedGallery.clientName}</strong>
+                     </p>
+                  </div>
                </div>
                
                <label className={`flex items-center gap-3 bg-white text-black px-6 py-3 text-xs uppercase tracking-widest hover:bg-primary hover:text-white transition-colors cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -279,8 +318,15 @@ export default function AdminGalleries() {
                               <div className="absolute inset-x-0 bottom-0 bg-black/80 text-center py-1">
                                  <p className="text-[10px] text-white break-all truncate px-1">{p.filename}</p>
                               </div>
+                              <button 
+                                 onClick={(e) => handleDeletePhoto(p, e)} 
+                                 className="absolute top-2 left-2 flex items-center justify-center w-6 h-6 bg-red-600/90 hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                 title="Excluir Definitivamente"
+                              >
+                                 <Trash2 className="w-3 h-3 text-white" />
+                              </button>
                               {p.is_selected && (
-                                <div className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 bg-primary rounded-full">
+                                <div className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 bg-primary rounded-full" title="Foto Aprovada">
                                     <CheckCircle2 className="w-4 h-4 text-black" />
                                 </div>
                               )}
@@ -315,7 +361,6 @@ export default function AdminGalleries() {
                         {copiedWin ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         {copiedWin ? "Copiado!" : "Copiar OR (Windows)"}
                      </button>
-
                      <div className="mt-6 border-t border-border/50 pt-4">
                          <p className="text-[10px] text-gray-500 uppercase tracking-widest">Amostra:</p>
                          <p className="text-xs text-primary font-mono mt-1 break-all line-clamp-3">
@@ -327,7 +372,7 @@ export default function AdminGalleries() {
             </div>
          </div>
       ) : (
-         <div className="flex-1 flex flex-col items-center justify-center bg-black/50 border-l border-border">
+         <div className="hidden lg:flex flex-1 flex-col items-center justify-center bg-black/50 border-l border-border">
             <FolderOpen className="w-16 h-16 text-border mb-4" />
             <p className="text-gray-500 text-xs uppercase tracking-widest text-center px-8">Selecione uma galeria no menu à esquerda<br/>para realizar envios e exports.</p>
          </div>

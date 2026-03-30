@@ -174,6 +174,25 @@ export default function GalleryView() {
          </button>
       </div>
 
+      {selectedGallery.deliveryLink && (
+         <div className="mb-12 border border-primary bg-primary/5 p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 animate-in fade-in slide-in-from-bottom-4">
+            <div>
+               <h3 className="text-2xl font-serif text-white mb-2">Suas fotos finais estão prontas!</h3>
+               <p className="text-gray-400 text-sm tracking-wide">
+                  A edição desta galeria foi concluída. Acesse a pasta exclusiva para baixar seus arquivos em alta resolução.
+               </p>
+            </div>
+            <a 
+               href={selectedGallery.deliveryLink}
+               target="_blank"
+               rel="noopener noreferrer"
+               className="bg-primary text-black font-bold uppercase tracking-widest text-xs px-8 py-4 hover:bg-white transition-colors shrink-0 text-center"
+            >
+               Acessar Pasta no Drive
+            </a>
+         </div>
+      )}
+
       {loadingPhotos ? (
          <div className="py-24 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : photos.length === 0 ? (
