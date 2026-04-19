@@ -113,7 +113,7 @@ function GalleryViewContent() {
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({
                  amountCents: extrasTotal * 100, // em centavos
-                 customerName: user?.displayName || user?.email || "Cliente WDB",
+                 customerName: user?.fullName || user?.email || "Cliente WDB",
                  description: `Fotos Extras Galeria: ${selectedGallery.title} (+${extrasCount} fotos)`,
                  redirectUrl: window.location.origin + window.location.pathname + "?success=true"
              })
