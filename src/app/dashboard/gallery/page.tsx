@@ -1,13 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Heart, Download, Loader2, FolderOpen, ArrowLeft } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { collection, query, getDocs, doc, writeBatch, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/AuthContext";
 
-export default function GalleryView() {
+function GalleryViewContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const isSuccess = searchParams?.get('success');
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+  useEffect(() => {
+    if (isSuccess) {
+       setShowSuccessPopup(true);
+       // Clean URL after short delay
+       setTimeout(() => router.replace('/dashboard/gallery', undefined), 1000);
+    }
+  }, [isSuccess, router]);
+
   const [galleries, setGalleries] = useState<any[]>([]);
   const [selectedGallery, setSelectedGallery] = useState<any | null>(null);
   
@@ -92,9 +107,27 @@ export default function GalleryView() {
 
       if (paymentMethod === 'padrao') {
          alert("Seleção salva com sucesso! O fotógrafo já tem acesso à sua lista.");
-         // Optionally send whatsapp for standard
+      } else if (paymentMethod === 'cartao') {
+         const result = await fetch('/api/checkout', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+                 amountCents: extrasTotal * 100, // em centavos
+                 customerName: user?.displayName || user?.email || "Cliente WDB",
+                 description: `Fotos Extras Galeria: ${selectedGallery.title} (+${extrasCount} fotos)`,
+                 redirectUrl: window.location.origin + window.location.pathname + "?success=true"
+             })
+         });
+         const data = await result.json();
+         if (data.url) {
+             window.location.href = data.url; // Redireciona para o InfinitePay
+             return; // Termina executação sem limpar os botões ainda, pois a tela vai sair
+         } else {
+             alert("Erro ao validar dados com a processadora. Tente usar o PIX.");
+             setSaving(false);
+         }
       } else {
-         const wppText = `Olá William!\n\nAcabei de finalizar a seleção da minha galeria *[ ${selectedGallery.title} ]*.\n\n📊 *Resumo da Escolha:*\n- Fotos Inclusas: ${included}\n- Fotos Selecionadas: ${selectedCount}\n- Fotos EXTRAS: ${extrasCount}\n\n💰 *Valor Adicional:* R$ ${extrasTotal},00\n💳 *Forma de Pagamento:* ${paymentMethod === 'pix' ? 'PIX (Comprovante em anexo/logo abaixo)' : 'Solicito Link de Cartão'}\n\nAguardando liberação dos downloads em alta!`;
+         const wppText = `Olá William!\n\nAcabei de finalizar a seleção da minha galeria *[ ${selectedGallery.title} ]*.\n\n📊 *Resumo da Escolha:*\n- Fotos Inclusas: ${included}\n- Fotos Selecionadas: ${selectedCount}\n- Fotos EXTRAS: ${extrasCount}\n\n💰 *Valor Adicional:* R$ ${extrasTotal},00\n💳 *Forma de Pagamento:* PIX (Comprovante em anexo/logo abaixo)\n\nAguardando liberação dos downloads em alta!`;
          window.open(`https://wa.me/5512988130316?text=${encodeURIComponent(wppText)}`, "_blank");
       }
     } catch (err) {
@@ -277,7 +310,7 @@ export default function GalleryView() {
                      className="w-full bg-transparent border border-border text-white font-bold py-3 text-xs uppercase tracking-widest hover:border-white transition-colors flex justify-center items-center gap-2"
                   >
                      {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                     Solicitar Link de Cartão no WPP
+                     Pagar com Cartão (Até 10x Sem Juros)
                   </button>
 
                   <button 
@@ -290,6 +323,35 @@ export default function GalleryView() {
             </div>
          </div>
       )}
+      {/* Success Popup */}
+      {showSuccessPopup && (
+         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-surface border border-border max-w-md p-10 text-center animate-in zoom-in duration-300 relative">
+               <div className="mx-auto bg-primary/20 w-16 h-16 rounded-full flex items-center justify-center mb-6">
+                 <Heart className="w-8 h-8 text-primary fill-primary" />
+               </div>
+               <h2 className="text-3xl font-serif text-white mb-4">Sucesso!</h2>
+               <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+                  O seu pagamento foi processado com sucesso. Muito obrigado por escolher expandir ainda mais suas memórias conosco. <br/><br/>
+                  <span className="text-white">O fotógrafo foi notificado e suas fotos extras liberadas em alta resolução estarão disponíveis para download na sua pasta no drive em <strong>até 7 dias úteis</strong>.</span>
+               </p>
+               <button 
+                  onClick={() => setShowSuccessPopup(false)}
+                  className="bg-primary text-black font-bold uppercase tracking-widest text-xs px-8 py-4 w-full hover:bg-white transition-colors"
+               >
+                  Fechar
+               </button>
+            </div>
+         </div>
+      )}
     </div>
+  );
+}
+
+export default function GalleryView() {
+  return (
+    <Suspense fallback={<div className="p-16 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+      <GalleryViewContent />
+    </Suspense>
   );
 }
