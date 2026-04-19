@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import axios from "axios";
 
 export async function POST(req: Request) {
   try {
@@ -11,9 +10,12 @@ export async function POST(req: Request) {
 
     const orderNsu = `WDB-EXTRAS-${Date.now()}`;
 
-    const infinitePayResp = await axios.post(
-      "https://api.infinitepay.io/invoices/public/checkout/links",
-      {
+    const infinitePayResp = await fetch("https://api.infinitepay.io/invoices/public/checkout/links", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
         handle: "william-del-barrio",
         redirect_url: redirectUrl || "https://williamdelbarrio.com.br/dashboard/gallery",
         webhook_url: "https://williamdelbarrio.com.br", // Dummy webhook, Will verifies manually for now based on receipt
@@ -29,16 +31,23 @@ export async function POST(req: Request) {
           name: customerName || "Cliente WDB",
           phone_number: customerPhone || "+5511999999999" 
         }
-      }
-    );
+      })
+    });
 
-    if (infinitePayResp.data && infinitePayResp.data.url) {
-      return NextResponse.json({ url: infinitePayResp.data.url });
+    if (!infinitePayResp.ok) {
+        throw new Error("Invalid response from InfinitePay");
+    }
+
+    const data = await infinitePayResp.json();
+
+    if (data && data.url) {
+      return NextResponse.json({ url: data.url });
     } else {
-      throw new Error("Invalid response from InfinitePay");
+      throw new Error("No URL returned from InfinitePay");
     }
   } catch (error: any) {
-    console.error("[Checkout API Error]", error?.response?.data || error.message);
+    console.error("[Checkout API Error]", error.message);
     return NextResponse.json({ error: "Erro ao gerar link de pagamento" }, { status: 500 });
   }
 }
+
