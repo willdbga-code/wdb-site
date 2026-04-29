@@ -157,6 +157,26 @@ async function sendWhatsAppMessage(to, text, apiUrl, apiKey) {
     await axios_1.default.post(`${apiUrl}/message/sendText/${INSTANCE_NAME}`, { number: to, text }, { headers: { apikey: apiKey, "Content-Type": "application/json" } });
 }
 // =====================================================
+// DOWNLOAD MEDIA from Evolution API (returns base64)
+// =====================================================
+async function downloadMediaBase64(messageKey, apiUrl, apiKey) {
+    var _a, _b;
+    try {
+        const response = await axios_1.default.post(`${apiUrl}/chat/getBase64FromMediaMessage/${INSTANCE_NAME}`, { message: { key: messageKey } }, { headers: { apikey: apiKey, "Content-Type": "application/json" } });
+        if ((_a = response.data) === null || _a === void 0 ? void 0 : _a.base64) {
+            return {
+                base64: response.data.base64,
+                mimetype: response.data.mimetype || "audio/ogg",
+            };
+        }
+        return null;
+    }
+    catch (error) {
+        functions.logger.error("[WDB Bot] Error downloading media:", ((_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.data) || error.message);
+        return null;
+    }
+}
+// =====================================================
 // MAIN WEBHOOK - Receives messages from Evolution API
 // =====================================================
 exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
@@ -182,13 +202,14 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
             res.status(200).send("OK - ignored");
             return;
         }
-        // ── Detect non-text media (audio, image, video, sticker) ──
+        // ── Detect non-text media (image, video, sticker, document → polite reply) ──
         const isAudio = !!(messageType === null || messageType === void 0 ? void 0 : messageType.audioMessage);
         const isImage = !!(messageType === null || messageType === void 0 ? void 0 : messageType.imageMessage);
         const isVideo = !!(messageType === null || messageType === void 0 ? void 0 : messageType.videoMessage);
         const isSticker = !!(messageType === null || messageType === void 0 ? void 0 : messageType.stickerMessage);
         const isDocument = !!(messageType === null || messageType === void 0 ? void 0 : messageType.documentMessage);
-        if (isAudio || isImage || isVideo || isSticker || isDocument) {
+        // Handle non-processable media (everything except audio)
+        if (isImage || isVideo || isSticker || isDocument) {
             const phoneNumber = remoteJid.replace("@s.whatsapp.net", "");
             // Check personal contacts — stay silent for them
             const personalRef = db.collection("whatsapp_personal_contacts").doc(phoneNumber);
@@ -198,35 +219,58 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
                 return;
             }
             let mediaReply = "";
-            if (isAudio) {
-                mediaReply = "Oi! 😊 Ainda não consigo ouvir áudios por aqui — sou uma inteligência artificial baseada em texto. Poderia digitar a sua dúvida ou pedido? Prometo te atender rapidinho! ✨";
-            }
-            else if (isImage) {
+            if (isImage) {
                 mediaReply = "Oi! 😊 Recebi sua imagem, mas ainda não consigo visualizá-la — sou uma inteligência artificial baseada em texto. Se for um comprovante de pagamento, o William vai verificar pessoalmente. Se tiver alguma dúvida, é só digitar aqui! ✨";
             }
             else if (isVideo) {
                 mediaReply = "Oi! 😊 Recebi seu vídeo, mas infelizmente ainda não consigo assistir — sou uma inteligência artificial baseada em texto. Pode me contar por escrito o que precisa? ✨";
             }
             else if (isSticker) {
-                // Stickers: stay silent, no need to reply
                 res.status(200).send("OK - sticker ignored");
                 return;
             }
             else {
                 mediaReply = "Oi! 😊 Recebi seu arquivo, mas infelizmente ainda não consigo abri-lo — sou uma inteligência artificial baseada em texto. Poderia descrever sua dúvida por escrito? ✨";
             }
-            functions.logger.info(`[WDB Bot] Media message (${isAudio ? "audio" : isImage ? "image" : isVideo ? "video" : "document"}) from ${phoneNumber}`);
+            functions.logger.info(`[WDB Bot] Media message (${isImage ? "image" : isVideo ? "video" : "document"}) from ${phoneNumber}`);
             await sendWhatsAppMessage(remoteJid, mediaReply, EVOLUTION_API_URL.value(), EVOLUTION_API_KEY.value());
             res.status(200).send("OK - media reply sent");
             return;
         }
-        // Extract text (supports regular text and extended messages)
-        const incomingText = (messageType === null || messageType === void 0 ? void 0 : messageType.conversation) ||
-            ((_c = messageType === null || messageType === void 0 ? void 0 : messageType.extendedTextMessage) === null || _c === void 0 ? void 0 : _c.text) ||
-            "";
-        if (!incomingText.trim()) {
-            res.status(200).send("OK - no text");
-            return;
+        // ── Handle audio messages: download and transcribe via Gemini ──
+        let incomingText = "";
+        let audioBase64 = null;
+        let audioMimeType = "audio/ogg";
+        if (isAudio) {
+            const mediaData = await downloadMediaBase64(message.key, EVOLUTION_API_URL.value(), EVOLUTION_API_KEY.value());
+            if (!mediaData) {
+                // Fallback: could not download audio
+                const phoneNumber = remoteJid.replace("@s.whatsapp.net", "");
+                const personalRef = db.collection("whatsapp_personal_contacts").doc(phoneNumber);
+                const personalSnap = await personalRef.get();
+                if (personalSnap.exists) {
+                    res.status(200).send("OK - personal contact");
+                    return;
+                }
+                await sendWhatsAppMessage(remoteJid, "Oi! 😊 Tive uma dificuldade técnica para ouvir seu áudio agora. Poderia digitar sua mensagem? Prometo te atender rapidinho! ✨", EVOLUTION_API_URL.value(), EVOLUTION_API_KEY.value());
+                res.status(200).send("OK - audio download failed");
+                return;
+            }
+            audioBase64 = mediaData.base64;
+            audioMimeType = mediaData.mimetype;
+            incomingText = "[Áudio de voz]";
+            functions.logger.info(`[WDB Bot] Audio received, size: ${Math.round(audioBase64.length * 0.75 / 1024)}KB, mime: ${audioMimeType}`);
+        }
+        else {
+            // Extract text (supports regular text and extended messages)
+            incomingText =
+                (messageType === null || messageType === void 0 ? void 0 : messageType.conversation) ||
+                    ((_c = messageType === null || messageType === void 0 ? void 0 : messageType.extendedTextMessage) === null || _c === void 0 ? void 0 : _c.text) ||
+                    "";
+            if (!incomingText.trim()) {
+                res.status(200).send("OK - no text");
+                return;
+            }
         }
         const phoneNumber = remoteJid.replace("@s.whatsapp.net", "");
         functions.logger.info(`[WDB Bot] Message from ${phoneNumber}: ${incomingText}`);
@@ -274,7 +318,18 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
             }
         }
         const chat = model.startChat({ history: normalizedHistory });
-        const result = await chat.sendMessage(incomingText);
+        // ── Send message to Gemini (text or multimodal audio) ──
+        let result;
+        if (audioBase64) {
+            // Multimodal: send audio inline + context instruction
+            result = await chat.sendMessage([
+                { inlineData: { data: audioBase64, mimeType: audioMimeType } },
+                { text: "O cliente acabou de enviar este áudio de voz no WhatsApp. Ouça com atenção, entenda o que ele está dizendo e responda normalmente, como se ele tivesse digitado a mensagem." },
+            ]);
+        }
+        else {
+            result = await chat.sendMessage(incomingText);
+        }
         const responseText = result.response.text();
         // ── Save updated history to Firestore ──
         const updatedHistory = [
