@@ -182,6 +182,44 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
             res.status(200).send("OK - ignored");
             return;
         }
+        // ── Detect non-text media (audio, image, video, sticker) ──
+        const isAudio = !!(messageType === null || messageType === void 0 ? void 0 : messageType.audioMessage);
+        const isImage = !!(messageType === null || messageType === void 0 ? void 0 : messageType.imageMessage);
+        const isVideo = !!(messageType === null || messageType === void 0 ? void 0 : messageType.videoMessage);
+        const isSticker = !!(messageType === null || messageType === void 0 ? void 0 : messageType.stickerMessage);
+        const isDocument = !!(messageType === null || messageType === void 0 ? void 0 : messageType.documentMessage);
+        if (isAudio || isImage || isVideo || isSticker || isDocument) {
+            const phoneNumber = remoteJid.replace("@s.whatsapp.net", "");
+            // Check personal contacts — stay silent for them
+            const personalRef = db.collection("whatsapp_personal_contacts").doc(phoneNumber);
+            const personalSnap = await personalRef.get();
+            if (personalSnap.exists) {
+                res.status(200).send("OK - personal contact media");
+                return;
+            }
+            let mediaReply = "";
+            if (isAudio) {
+                mediaReply = "Oi! 😊 Ainda não consigo ouvir áudios por aqui — sou uma inteligência artificial baseada em texto. Poderia digitar a sua dúvida ou pedido? Prometo te atender rapidinho! ✨";
+            }
+            else if (isImage) {
+                mediaReply = "Oi! 😊 Recebi sua imagem, mas ainda não consigo visualizá-la — sou uma inteligência artificial baseada em texto. Se for um comprovante de pagamento, o William vai verificar pessoalmente. Se tiver alguma dúvida, é só digitar aqui! ✨";
+            }
+            else if (isVideo) {
+                mediaReply = "Oi! 😊 Recebi seu vídeo, mas infelizmente ainda não consigo assistir — sou uma inteligência artificial baseada em texto. Pode me contar por escrito o que precisa? ✨";
+            }
+            else if (isSticker) {
+                // Stickers: stay silent, no need to reply
+                res.status(200).send("OK - sticker ignored");
+                return;
+            }
+            else {
+                mediaReply = "Oi! 😊 Recebi seu arquivo, mas infelizmente ainda não consigo abri-lo — sou uma inteligência artificial baseada em texto. Poderia descrever sua dúvida por escrito? ✨";
+            }
+            functions.logger.info(`[WDB Bot] Media message (${isAudio ? "audio" : isImage ? "image" : isVideo ? "video" : "document"}) from ${phoneNumber}`);
+            await sendWhatsAppMessage(remoteJid, mediaReply, EVOLUTION_API_URL.value(), EVOLUTION_API_KEY.value());
+            res.status(200).send("OK - media reply sent");
+            return;
+        }
         // Extract text (supports regular text and extended messages)
         const incomingText = (messageType === null || messageType === void 0 ? void 0 : messageType.conversation) ||
             ((_c = messageType === null || messageType === void 0 ? void 0 : messageType.extendedTextMessage) === null || _c === void 0 ? void 0 : _c.text) ||
@@ -218,7 +256,7 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
         const calendarContext = await getUpcomingAvailability(GOOGLE_CLIENT_EMAIL_PARAM.value(), GOOGLE_PRIVATE_KEY_PARAM.value());
         const genAI = new generative_ai_1.GoogleGenerativeAI(GEMINI_API_KEY.value());
         const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
+            model: "gemini-2.5-flash",
             systemInstruction: SYSTEM_INSTRUCTION + `\n\n** STATUS DA AGENDA DO WILLIAM EM TEMPO REAL **\n${calendarContext}`,
         });
         // Normalize history for Gemini (must alternate user/model, start with user)

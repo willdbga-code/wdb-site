@@ -197,6 +197,52 @@ export const whatsappWebhook = functions.https.onRequest(async (req, res) => {
       return;
     }
 
+    // ── Detect non-text media (audio, image, video, sticker) ──
+    const isAudio = !!messageType?.audioMessage;
+    const isImage = !!messageType?.imageMessage;
+    const isVideo = !!messageType?.videoMessage;
+    const isSticker = !!messageType?.stickerMessage;
+    const isDocument = !!messageType?.documentMessage;
+
+    if (isAudio || isImage || isVideo || isSticker || isDocument) {
+      const phoneNumber = remoteJid.replace("@s.whatsapp.net", "");
+
+      // Check personal contacts — stay silent for them
+      const personalRef = db.collection("whatsapp_personal_contacts").doc(phoneNumber);
+      const personalSnap = await personalRef.get();
+      if (personalSnap.exists) {
+        res.status(200).send("OK - personal contact media");
+        return;
+      }
+
+      let mediaReply = "";
+      if (isAudio) {
+        mediaReply = "Oi! 😊 Ainda não consigo ouvir áudios por aqui — sou uma inteligência artificial baseada em texto. Poderia digitar a sua dúvida ou pedido? Prometo te atender rapidinho! ✨";
+      } else if (isImage) {
+        mediaReply = "Oi! 😊 Recebi sua imagem, mas ainda não consigo visualizá-la — sou uma inteligência artificial baseada em texto. Se for um comprovante de pagamento, o William vai verificar pessoalmente. Se tiver alguma dúvida, é só digitar aqui! ✨";
+      } else if (isVideo) {
+        mediaReply = "Oi! 😊 Recebi seu vídeo, mas infelizmente ainda não consigo assistir — sou uma inteligência artificial baseada em texto. Pode me contar por escrito o que precisa? ✨";
+      } else if (isSticker) {
+        // Stickers: stay silent, no need to reply
+        res.status(200).send("OK - sticker ignored");
+        return;
+      } else {
+        mediaReply = "Oi! 😊 Recebi seu arquivo, mas infelizmente ainda não consigo abri-lo — sou uma inteligência artificial baseada em texto. Poderia descrever sua dúvida por escrito? ✨";
+      }
+
+      functions.logger.info(`[WDB Bot] Media message (${isAudio ? "audio" : isImage ? "image" : isVideo ? "video" : "document"}) from ${phoneNumber}`);
+
+      await sendWhatsAppMessage(
+        remoteJid,
+        mediaReply,
+        EVOLUTION_API_URL.value(),
+        EVOLUTION_API_KEY.value()
+      );
+
+      res.status(200).send("OK - media reply sent");
+      return;
+    }
+
     // Extract text (supports regular text and extended messages)
     const incomingText: string =
       messageType?.conversation ||
