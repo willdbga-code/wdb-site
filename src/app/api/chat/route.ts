@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     const calendarContext = await getUpcomingAvailability();
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       systemInstruction: SYSTEM_INSTRUCTION + `\n\n** STATUS DA SUA AGENDA (WILLIAM) EM TEMPO REAL **\n${calendarContext}`,
     });
 

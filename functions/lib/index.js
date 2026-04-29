@@ -218,7 +218,7 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
         const calendarContext = await getUpcomingAvailability(GOOGLE_CLIENT_EMAIL_PARAM.value(), GOOGLE_PRIVATE_KEY_PARAM.value());
         const genAI = new generative_ai_1.GoogleGenerativeAI(GEMINI_API_KEY.value());
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash",
+            model: "gemini-1.5-flash",
             systemInstruction: SYSTEM_INSTRUCTION + `\n\n** STATUS DA AGENDA DO WILLIAM EM TEMPO REAL **\n${calendarContext}`,
         });
         // Normalize history for Gemini (must alternate user/model, start with user)
