@@ -5,6 +5,7 @@ import CustomCursor from "../components/CustomCursor";
 import NavBar from "@/components/NavBar";
 import { AuthProvider } from "@/lib/AuthContext";
 import LeadBotPopup from "@/components/LeadBotPopup";
+import ContentProtection from "@/components/ContentProtection";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -33,6 +34,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground selection:bg-primary selection:text-black">
         <div className="bg-noise" />
+        <ContentProtection />
         <CustomCursor />
         <AuthProvider>
           <NavBar />

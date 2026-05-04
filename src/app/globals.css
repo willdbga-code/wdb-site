@@ -63,3 +63,60 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
   display: inline-block;
 }
+
+/* ==========================================
+   CONTENT PROTECTION — Anti-theft System
+   ========================================== */
+
+/* Anti-Print: Black out entire page when printing */
+@media print {
+  * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  html, body {
+    display: block !important;
+    visibility: visible !important;
+    background: #000 !important;
+    color: #000 !important;
+  }
+
+  body::after {
+    content: "© William del Barrio — Conteúdo Protegido. Impressão não permitida.";
+    display: block !important;
+    visibility: visible !important;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #333;
+    font-size: 14px;
+    font-family: monospace;
+    text-align: center;
+    z-index: 999999;
+  }
+}
+
+/* Anti-drag for all images */
+img {
+  -webkit-user-drag: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Invisible overlay on images to block direct save */
+.protected-image-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.protected-image-wrapper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  z-index: 2;
+}
