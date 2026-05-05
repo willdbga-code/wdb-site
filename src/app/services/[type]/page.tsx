@@ -36,6 +36,25 @@ const mockData: Record<string, PackageData> = {
   }
 };
 
+export async function generateMetadata({ params }: { params: Promise<{ type: string }> }) {
+  const { type } = await params;
+  let pkg = mockData[type] || null;
+
+  if (!pkg) {
+    return { title: "Serviço não encontrado" };
+  }
+
+  return {
+    title: `${pkg.title} | WDB Editorial`,
+    description: pkg.description,
+    openGraph: {
+      title: `${pkg.title} | William del Barrio`,
+      description: pkg.description,
+      images: [pkg.cover_image_url],
+    },
+  };
+}
+
 export default async function ServicePage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
 
