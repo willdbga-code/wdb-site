@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import CustomCursor from "../components/CustomCursor";
-import NavBar from "@/components/NavBar";
 import { AuthProvider } from "@/lib/AuthContext";
-import LeadBotPopup from "@/components/LeadBotPopup";
 import ContentProtection from "@/components/ContentProtection";
 import Analytics from "@/components/Analytics";
+import LayoutShell from "@/components/LayoutShell";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -55,9 +54,9 @@ export default function RootLayout({
         <ContentProtection />
         <CustomCursor />
         <AuthProvider>
-          <NavBar />
-          {children}
-          <LeadBotPopup />
+          <LayoutShell>
+            {children}
+          </LayoutShell>
         </AuthProvider>
       </body>
     </html>
