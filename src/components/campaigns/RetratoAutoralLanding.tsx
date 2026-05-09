@@ -42,7 +42,7 @@ const fadeUp = {
   hidden: { opacity: 0, y: 40 },
   visible: (i: number) => ({
     opacity: 1, y: 0,
-    transition: { duration: 0.8, delay: i * 0.15, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.8, delay: i * 0.15, ease: [0.16, 1, 0.3, 1] as const },
   }),
 };
 
@@ -156,7 +156,7 @@ export default function RetratoAutoralLanding({ campaign, wppLink }: Props) {
             <motion.h1
               initial={{ opacity: 0, y: 60 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 1, delay: 0.6, ease: [0.16, 1, 0.3, 1] as const }}
               className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-serif font-light leading-[0.9] tracking-tight mb-8"
             >
               Retrato<br />
