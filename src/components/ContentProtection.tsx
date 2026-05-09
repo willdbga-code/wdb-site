@@ -219,49 +219,7 @@ export default function ContentProtection() {
         }}
       />
 
-      {/* Watermark layer — subtle diagonal text over images */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          zIndex: 9998,
-          pointerEvents: "none",
-          overflow: "hidden",
-          opacity: 0.03,
-        }}
-      >
-        <div
-          style={{
-            width: "200%",
-            height: "200%",
-            transform: "rotate(-30deg) translate(-25%, -25%)",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "80px",
-            padding: "40px",
-          }}
-        >
-          {Array.from({ length: 60 }).map((_, i) => (
-            <span
-              key={i}
-              style={{
-                color: "#fff",
-                fontSize: "14px",
-                fontFamily: "monospace",
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                whiteSpace: "nowrap",
-              }}
-            >
-              © WDB EDITORIAL
-            </span>
-          ))}
-        </div>
-      </div>
+
     </>
   );
 }
