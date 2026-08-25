@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const cleanFileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
     const filename = `${folder}/${cleanFileName}`;
 
-    // If BLOB_READ_WRITE_TOKEN is configured (on Vercel or in .env.local), use Vercel Blob
+    // 1. If BLOB_READ_WRITE_TOKEN is configured, use Vercel Blob
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const blob = await put(filename, file, {
         access: "public",
@@ -29,7 +29,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Local Development Fallback: Save to /public/uploads
+    // 2. If running on Vercel environment but BLOB_READ_WRITE_TOKEN is missing
+    if (process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV) {
+      return NextResponse.json(
+        {
+          error:
+            "O Vercel Blob ainda não foi conectado ao seu projeto na Vercel. Acesse o painel da Vercel -> Storage -> Conectar Vercel Blob.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // 3. Local Offline Development Fallback: Save to /public/uploads
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -64,12 +75,14 @@ export async function DELETE(request: NextRequest) {
 
     // If it's a Vercel Blob URL
     if (urlToDelete.includes("blob.vercel-storage.com")) {
-      await del(urlToDelete);
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        await del(urlToDelete);
+      }
       return NextResponse.json({ success: true });
     }
 
     // If it's a local fallback URL (/uploads/...)
-    if (urlToDelete.startsWith("/uploads/")) {
+    if (urlToDelete.startsWith("/uploads/") && !process.env.VERCEL) {
       const relativePath = urlToDelete.replace("/uploads/", "");
       const localFilePath = path.join(process.cwd(), "public", "uploads", relativePath);
       await unlink(localFilePath).catch(() => null);
