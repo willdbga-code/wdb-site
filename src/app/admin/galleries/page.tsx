@@ -5,6 +5,7 @@ import { UploadCloud, Copy, CheckCircle2, Loader2, Trash2, Plus, Users, FolderOp
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, orderBy, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { uploadToBlob, deleteFromBlob, getPublicImageUrl } from "@/lib/blob";
+import { compressImage } from "@/lib/compressImage";
 
 export default function AdminGalleries() {
   const [galleries, setGalleries] = useState<any[]>([]);
@@ -116,14 +117,21 @@ export default function AdminGalleries() {
     let uploadedCount = 0;
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setUploadProgress(`Enviando ${i + 1} de ${files.length}...`);
+      const originalFile = files[i];
+      setUploadProgress(`Otimizando e enviando ${i + 1} de ${files.length}...`);
       
       try {
-        const url = await uploadToBlob(file, `galleries/${selectedGallery.id}`);
+        // Compress client gallery photo for rapid loading and huge space savings
+        const compressedFile = await compressImage(originalFile, {
+          maxWidth: 2400,
+          quality: 0.85,
+          mimeType: "image/webp",
+        });
+
+        const url = await uploadToBlob(compressedFile, `galleries/${selectedGallery.id}`);
         
         await addDoc(collection(db, "photos"), {
-          filename: file.name,
+          filename: originalFile.name,
           url: url,
           uploadedAt: new Date().toISOString(),
           galleryId: selectedGallery.id,
@@ -132,7 +140,7 @@ export default function AdminGalleries() {
         
         uploadedCount++;
       } catch (err) {
-        console.error("Erro no upload de", file.name, err);
+        console.error("Erro no upload de", originalFile.name, err);
       }
     }
 

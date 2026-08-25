@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { uploadToBlob, getPublicImageUrl } from "@/lib/blob";
+import { compressImage } from "@/lib/compressImage";
 import { Upload, Save, CheckCircle, Loader2 } from "lucide-react";
 
 export default function AdminSettings() {
@@ -26,7 +27,7 @@ export default function AdminSettings() {
           setSettings(snap.data() as any);
         }
       } catch (err) {
-        console.error("Erro ao puxar settings", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -38,9 +39,14 @@ export default function AdminSettings() {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
     
-    setMessage(`Fazendo upload de ${file.name}...`);
+    setMessage(`Otimizando e enviando ${file.name}...`);
     try {
-      const url = await uploadToBlob(file, `settings/${field}`);
+      // Don't compress signatureIcon if it's a small PNG/SVG
+      const fileToUpload = field === "signatureIcon" 
+        ? file 
+        : await compressImage(file, { maxWidth: field === "heroImage" ? 2560 : 1800, quality: 0.85 });
+
+      const url = await uploadToBlob(fileToUpload, `settings/${field}`);
       setSettings(prev => ({ ...prev, [field]: url }));
       setMessage(`Upload completo para ${field}. Lembre-se de salvar.`);
     } catch (err: any) {

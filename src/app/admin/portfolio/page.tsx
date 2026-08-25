@@ -5,10 +5,12 @@ import { UploadCloud, Trash2, Loader2, Image as ImageIcon } from "lucide-react";
 import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { uploadToBlob, deleteFromBlob, getPublicImageUrl } from "@/lib/blob";
+import { compressImage } from "@/lib/compressImage";
 
 export default function AdminPortfolio() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("casamentos");
   
@@ -46,23 +48,33 @@ export default function AdminPortfolio() {
     let uploaded = 0;
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+      const originalFile = files[i];
+      setUploadProgress(`Otimizando e enviando ${i + 1} de ${files.length}...`);
+      
       try {
-        const url = await uploadToBlob(file, "portfolio");
+        // Automatically compress image before upload to save 85-90% storage space
+        const compressedFile = await compressImage(originalFile, {
+          maxWidth: 2560,
+          quality: 0.85,
+          mimeType: "image/webp",
+        });
+
+        const url = await uploadToBlob(compressedFile, "portfolio");
         
         await addDoc(collection(db, "portfolio_public"), {
-          title: file.name.split('.')[0],
+          title: originalFile.name.split('.')[0],
           url: url,
           category: category,
           createdAt: new Date().toISOString()
         });
         uploaded++;
       } catch (err) {
-        console.error(err);
+        console.error("Erro no upload da foto:", err);
       }
     }
 
     setUploading(false);
+    setUploadProgress("");
     if (uploaded > 0) fetchPhotos();
   };
 
@@ -100,9 +112,9 @@ export default function AdminPortfolio() {
                {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
             
-            <label className={`flex items-center gap-3 bg-white text-black px-6 py-3 text-xs uppercase tracking-widest font-bold hover:bg-primary hover:text-white transition-colors cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />} 
-               {uploading ? "Enviando..." : "Adicionar Fotos"}
+            <label className={`flex items-center gap-3 bg-white text-black px-6 py-3 text-xs uppercase tracking-widest font-bold hover:bg-primary hover:text-white transition-colors cursor-pointer ${uploading ? 'opacity-70 pointer-events-none' : ''}`}>
+               {uploading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <UploadCloud className="w-4 h-4" />} 
+               {uploading ? (uploadProgress || "Otimizando fotos...") : "Adicionar Fotos"}
                <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={uploading} />
             </label>
          </div>
