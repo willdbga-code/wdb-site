@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "W d B | Editorial Photography",
     description: "Competência técnica e estética absoluta. Fotografia de alto padrão para casamentos, retratos e campanhas.",
-    url: "https://williamdelbarrio.com",
+    url: "https://williamdelbarrio.com.br",
     siteName: "WDB Editorial",
     images: [
       {

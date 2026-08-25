@@ -58,13 +58,16 @@ export default function ServicesPreview() {
              </motion.div>
              <div className="w-full md:w-2/5 flex flex-col justify-center">
                 <span className="text-primary font-mono text-[10px] tracking-[0.3em] mb-4 block">01 // MATRIMÔNIO</span>
-                <Link href="/portfolio#casamentos">
+                <Link href="/portfolio">
                     <h3 className="text-4xl md:text-5xl font-serif font-light mb-6 hover:italic transition-all">Casamentos</h3>
                 </Link>
                 <p className="text-gray-400 font-light mb-8">A intersecção entre o glamour da alta costura e a emoção crua de um dos dias mais marcantes da vida humana.</p>
-                <Link href="/services/casamentos" className="flex items-center gap-4 text-[10px] tracking-widest uppercase pb-2 border-b border-white/20 w-fit hover:border-primary hover:text-primary transition-all group-hover:translate-x-4 duration-500">
+                <button 
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-lead-bot'))}
+                  className="flex items-center gap-4 text-[10px] tracking-widest uppercase pb-2 border-b border-white/20 w-fit hover:border-primary hover:text-primary transition-all group-hover:translate-x-4 duration-500"
+                >
                   Explorar Pacote <ArrowRight className="w-4 h-4" />
-                </Link>
+                </button>
              </div>
           </div>
 
@@ -86,13 +89,16 @@ export default function ServicesPreview() {
              </motion.div>
              <div className="w-full md:w-2/5 flex flex-col justify-center items-start md:items-end text-left md:text-right">
                 <span className="text-primary font-mono text-[10px] tracking-[0.3em] mb-4 block">02 // ARTE VISUAL</span>
-                <Link href="/portfolio#ensaios">
+                <Link href="/portfolio">
                     <h3 className="text-4xl md:text-5xl font-serif font-light mb-6 hover:italic transition-all">Ensaios Editoriais</h3>
                 </Link>
                 <p className="text-gray-400 font-light mb-8">Direção de arte estrita e luz pintada à mão. Para marcas e indivíduos que buscam imortalizar uma estética única.</p>
-                <Link href="/services/ensaios" className="flex items-center gap-4 text-[10px] tracking-widest uppercase pb-2 border-b border-white/20 w-fit hover:border-primary hover:text-primary transition-all group-hover:-translate-x-4 duration-500">
+                <button 
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-lead-bot'))}
+                  className="flex items-center gap-4 text-[10px] tracking-widest uppercase pb-2 border-b border-white/20 w-fit hover:border-primary hover:text-primary transition-all group-hover:-translate-x-4 duration-500"
+                >
                   Explorar Pacote <ArrowRight className="w-4 h-4" />
-                </Link>
+                </button>
              </div>
           </div>
 
@@ -114,13 +120,16 @@ export default function ServicesPreview() {
              </motion.div>
              <div className="w-full md:w-3/5 flex flex-col justify-center">
                 <span className="text-primary font-mono text-[10px] tracking-[0.3em] mb-4 block">03 // MARCA PESSOAL</span>
-                <Link href="/portfolio#comercial">
+                <Link href="/portfolio">
                     <h3 className="text-4xl md:text-5xl font-serif font-light mb-6 hover:italic transition-all">Ensaios Comerciais & Rebranding</h3>
                 </Link>
                 <p className="text-gray-400 font-light mb-8 max-w-xl">Removemos o ruído digital e alinhamos a sua imagem com a autoridade que sua competência já exige. O foco absoluto em comunicar credibilidade através de retratos de altíssimo padrão.</p>
-                <Link href="/services/comerciais" className="flex items-center gap-4 text-[10px] tracking-widest uppercase pb-2 border-b border-white/20 w-fit hover:border-primary hover:text-primary transition-all group-hover:translate-x-4 duration-500">
+                <button 
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-lead-bot'))}
+                  className="flex items-center gap-4 text-[10px] tracking-widest uppercase pb-2 border-b border-white/20 w-fit hover:border-primary hover:text-primary transition-all group-hover:translate-x-4 duration-500"
+                >
                   Consultoria de Imagem <ArrowRight className="w-4 h-4" />
-                </Link>
+                </button>
              </div>
           </div>
 

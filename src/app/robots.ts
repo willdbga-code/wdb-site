@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/dashboard/', '/admin/', '/login', '/register', '/unlock'],
     },
-    sitemap: 'https://williamdelbarrio.com/sitemap.xml',
+    sitemap: 'https://williamdelbarrio.com.br/sitemap.xml',
   }
 }

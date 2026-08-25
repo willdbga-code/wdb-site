@@ -2,17 +2,14 @@ import { MetadataRoute } from 'next'
 import { campaigns } from '@/lib/campaigns'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://williamdelbarrio.com'
+  const baseUrl = 'https://williamdelbarrio.com.br'
 
   const routes = [
     '',
     '/portfolio',
     '/about',
     '/login',
-    '/services/casamentos',
-    '/services/ensaios',
-    '/services/eventos',
-    '/services/video',
+    '/register',
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
