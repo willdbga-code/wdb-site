@@ -37,7 +37,7 @@ export const campaigns: Campaign[] = [
       "Ensaio Fotográfico Afetivo",
       "Direção Exclusiva para Mães e Filhos",
       "Galeria Online Privada",
-      "10 Fotos Tratadas em Alta Resolução"
+      "35 Fotos Tratadas em Alta Resolução"
     ],
     ctaText: "Garantir Vaga (Especial)",
     whatsappMessage: "Olá! Vi a campanha do Dia das Mães e quero agendar.",
@@ -80,7 +80,7 @@ export const campaigns: Campaign[] = [
     title: "Casamentos",
     subtitle: "Matrimônio Editorial",
     description: "A intersecção entre o glamour da alta costura e a emoção crua de um dos dias mais marcantes da vida humana. Cobertura completa e artística.",
-    price: "A partir de R$ 8.500",
+    price: "R$ 2.500",
     features: [
       "Cobertura do Making Of à Festa",
       "2 Fotógrafos Principais",
