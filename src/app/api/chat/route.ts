@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     let responseText = "";
     try {
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.6-flash",
         systemInstruction: promptSystem,
       });
       const chat = model.startChat({ history: normalizedHistory });
@@ -122,13 +122,23 @@ export async function POST(req: NextRequest) {
       responseText = result.response.text();
     } catch (err: any) {
       console.warn("[Gemini Fallback] Retrying with alternative model...", err.message);
-      const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: promptSystem,
-      });
-      const chat = fallbackModel.startChat({ history: normalizedHistory });
-      const result = await chat.sendMessage(message);
-      responseText = result.response.text();
+      try {
+        const fallbackModel = genAI.getGenerativeModel({
+          model: "gemini-2.0-flash",
+          systemInstruction: promptSystem,
+        });
+        const chat = fallbackModel.startChat({ history: normalizedHistory });
+        const result = await chat.sendMessage(message);
+        responseText = result.response.text();
+      } catch (err2: any) {
+        const legacyModel = genAI.getGenerativeModel({
+          model: "gemini-1.5-flash",
+          systemInstruction: promptSystem,
+        });
+        const chat = legacyModel.startChat({ history: normalizedHistory });
+        const result = await chat.sendMessage(message);
+        responseText = result.response.text();
+      }
     }
 
     const transferMatch = responseText.match(/\[TRANSFER_WHATSAPP([\s\S]*?)\]/);
