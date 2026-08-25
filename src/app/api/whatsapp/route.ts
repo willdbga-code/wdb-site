@@ -103,9 +103,7 @@ async function sendWhatsAppMessage(to: string, text: string) {
 
 async function sendWhatsAppVoiceNote(to: string, audioBase64: string) {
   try {
-    const audioPayload = audioBase64.startsWith("data:")
-      ? audioBase64
-      : `data:audio/mp3;base64,${audioBase64}`;
+    const rawBase64 = audioBase64.replace(/^data:audio\/[^;]+;base64,/, "");
 
     await fetch(`${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${INSTANCE_NAME}`, {
       method: "POST",
@@ -115,9 +113,9 @@ async function sendWhatsAppVoiceNote(to: string, audioBase64: string) {
       },
       body: JSON.stringify({
         number: to,
-        audio: audioPayload,
+        audio: rawBase64,
         options: {
-          delay: 1500,
+          delay: 1200,
           presence: "recording",
           encoding: true,
         },
@@ -128,7 +126,14 @@ async function sendWhatsAppVoiceNote(to: string, audioBase64: string) {
   }
 }
 
-async function downloadMediaBase64(messageKey: any): Promise<{ base64: string; mimetype: string } | null> {
+async function downloadMediaBase64(messageKey: any, directBase64?: string): Promise<{ base64: string; mimetype: string } | null> {
+  if (directBase64) {
+    return {
+      base64: directBase64.replace(/^data:audio\/[^;]+;base64,/, ""),
+      mimetype: "audio/ogg",
+    };
+  }
+
   try {
     const response = await fetch(`${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${INSTANCE_NAME}`, {
       method: "POST",
@@ -143,7 +148,7 @@ async function downloadMediaBase64(messageKey: any): Promise<{ base64: string; m
     const data = await response.json();
     if (data?.base64) {
       return {
-        base64: data.base64,
+        base64: data.base64.replace(/^data:audio\/[^;]+;base64,/, ""),
         mimetype: data.mimetype || "audio/ogg",
       };
     }
@@ -158,32 +163,44 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const event = body?.event;
+    const rawEvent = body?.event || "";
+    const event = rawEvent.toLowerCase().replace(/_/g, ".");
     if (event !== "messages.upsert") {
       return NextResponse.json({ status: "ignored_event" }, { status: 200 });
     }
 
     const message = body?.data;
-    const remoteJid: string = message?.key?.remoteJid;
     const fromMe: boolean = message?.key?.fromMe;
+    const rawJid: string = message?.key?.remoteJid || "";
+    const altJid: string = message?.key?.remoteJidAlt || "";
     const messageType = message?.message;
 
-    if (fromMe || !remoteJid || !messageType) {
+    if (fromMe || !rawJid || !messageType) {
       return NextResponse.json({ status: "ignored" }, { status: 200 });
     }
 
-    const phoneNumber = remoteJid.replace("@s.whatsapp.net", "");
+    // Determine target reply JID and clean phone number candidates
+    const replyJid = (altJid && altJid.endsWith("@s.whatsapp.net")) ? altJid : rawJid;
+    const phoneCandidates = [
+      rawJid.replace(/@.*$/, "").replace(/[^0-9]/g, ""),
+      altJid.replace(/@.*$/, "").replace(/[^0-9]/g, "")
+    ].filter(Boolean);
 
     // Check personal contacts in Firestore (fail-safe)
     try {
-      const personalRef = doc(db, "whatsapp_personal_contacts", phoneNumber);
-      const personalSnap = await getDoc(personalRef);
-      if (personalSnap.exists()) {
-        return NextResponse.json({ status: "personal_contact_ignored" }, { status: 200 });
+      for (const phone of phoneCandidates) {
+        const personalRef = doc(db, "whatsapp_personal_contacts", phone);
+        const personalSnap = await getDoc(personalRef);
+        if (personalSnap.exists()) {
+          console.log(`[WhatsApp Webhook] Personal contact detected (${phone}) -> Silencing bot.`);
+          return NextResponse.json({ status: "personal_contact_ignored" }, { status: 200 });
+        }
       }
     } catch (personalErr: any) {
       console.warn("[WhatsApp Webhook] Could not check personal contacts:", personalErr.message);
     }
+
+    const phoneNumber = phoneCandidates[0] || rawJid.replace(/@.*$/, "");
 
     // Check if incoming is an audio message
     const isAudio = !!messageType?.audioMessage || !!messageType?.ptvMessage;
@@ -191,9 +208,12 @@ export async function POST(req: NextRequest) {
     let incomingWasAudio = false;
 
     if (isAudio) {
-      const mediaData = await downloadMediaBase64(message?.key);
+      const mediaData = await downloadMediaBase64(
+        message?.key,
+        messageType?.audioMessage?.base64 || message?.base64
+      );
       if (mediaData && mediaData.base64) {
-        const cleanBase64 = mediaData.base64.replace(/^data:audio\/[^;]+;base64,/, "");
+        const cleanBase64 = mediaData.base64;
         const sttModels = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
         let transcribed = false;
 
@@ -411,14 +431,14 @@ export async function POST(req: NextRequest) {
       const voiceResult = await generateVoiceNote(cleanResponse, configuredVoiceId);
 
       if (voiceResult && voiceResult.base64) {
-        await sendWhatsAppVoiceNote(remoteJid, voiceResult.base64);
+        await sendWhatsAppVoiceNote(replyJid, voiceResult.base64);
         audioSentSuccessfully = true;
-        console.log(`[ElevenLabs] Nota de voz enviada com sucesso para ${phoneNumber}!`);
+        console.log(`[ElevenLabs] Nota de voz enviada com sucesso para ${replyJid}!`);
 
         // Se houver links importantes (ex: InfinitePay ou painel), enviamos uma mensagem de apoio com os links clicáveis
         if (paymentLinkGenerated) {
           const companionMsg = `🔗 *Link para pagamento do Sinal:*\n${paymentLinkGenerated}\n\n_Assim que pagar, envie o comprovante aqui para garantirmos a data na agenda! ✨_`;
-          await sendWhatsAppMessage(remoteJid, companionMsg);
+          await sendWhatsAppMessage(replyJid, companionMsg);
         }
       } else {
         console.warn("[ElevenLabs] Falha ao gerar áudio, fazendo fallback para texto.");
@@ -427,7 +447,7 @@ export async function POST(req: NextRequest) {
 
     // Se o áudio não foi enviado (por configuração, modo texto ou fallback de erro), envia mensagem de texto padrão
     if (!audioSentSuccessfully) {
-      await sendWhatsAppMessage(remoteJid, cleanResponse);
+      await sendWhatsAppMessage(replyJid, cleanResponse);
     }
 
     return NextResponse.json({ status: "success", audioSent: audioSentSuccessfully }, { status: 200 });
