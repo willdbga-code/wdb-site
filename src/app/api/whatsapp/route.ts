@@ -6,8 +6,8 @@ import { getUpcomingAvailability } from "@/lib/calendar";
 import { sendLeadEmail } from "@/lib/mailer";
 import { generateVoiceNote } from "@/lib/elevenlabs";
 
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "https://evolution-api-production-2413.up.railway.app";
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "wdb-copilot-secret-2024";
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "http://187.127.16.220:8080";
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "wdb-copilot-secret-2026";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAuqZMaBUG_8CKQ6Y_wceN6NHyF0hWAXTk";
 const INSTANCE_NAME = "william";
 
