@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { UserCircle, Upload, Save, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { updatePassword } from "firebase/auth";
-import { db, storage, auth } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { uploadToBlob } from "@/lib/blob";
 
 export default function DashboardHome() {
   const { user } = useAuth();
@@ -48,9 +48,7 @@ export default function DashboardHome() {
     setMessage("Fazendo upload da foto...");
     
     try {
-      const storageRef = ref(storage, `profiles/${user.uid}_${Date.now()}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
+      const url = await uploadToBlob(file, `profiles/${user.uid}`);
       setProfile(prev => ({ ...prev, photoURL: url }));
       setMessage("Foto enviada. Guarde as alterações para fixar!");
     } catch (err) {

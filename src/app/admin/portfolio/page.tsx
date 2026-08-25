@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { UploadCloud, Trash2, Loader2, Image as ImageIcon } from "lucide-react";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, where } from "firebase/firestore";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
+import { uploadToBlob, deleteFromBlob } from "@/lib/blob";
 
 export default function AdminPortfolio() {
   const [photos, setPhotos] = useState<any[]>([]);
@@ -44,9 +44,7 @@ export default function AdminPortfolio() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        const storageRef = ref(storage, `portfolio/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
+        const url = await uploadToBlob(file, "portfolio");
         
         await addDoc(collection(db, "portfolio_public"), {
           title: file.name.split('.')[0],
@@ -68,7 +66,7 @@ export default function AdminPortfolio() {
     if (!confirm("Remover esta foto do portfólio público?")) return;
     try {
       await deleteDoc(doc(db, "portfolio_public", id));
-      // Note: In a full production app you'd also delete from Storage here.
+      if (url) await deleteFromBlob(url);
       fetchPhotos();
     } catch (err) {
       console.error(err);

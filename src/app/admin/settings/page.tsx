@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
+import { uploadToBlob } from "@/lib/blob";
 import { Upload, Save, CheckCircle, Loader2 } from "lucide-react";
 
 export default function AdminSettings() {
@@ -40,14 +40,12 @@ export default function AdminSettings() {
     
     setMessage(`Fazendo upload de ${file.name}...`);
     try {
-      const storageRef = ref(storage, `settings/${field}_${Date.now()}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
+      const url = await uploadToBlob(file, `settings/${field}`);
       setSettings(prev => ({ ...prev, [field]: url }));
       setMessage(`Upload completo para ${field}. Lembre-se de salvar.`);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setMessage("Erro no upload.");
+      setMessage(`Erro no upload: ${err.message || "Falha ao enviar arquivo."}`);
     }
   };
 

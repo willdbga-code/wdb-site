@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { UploadCloud, Copy, CheckCircle2, Loader2, Trash2, Plus, Users, FolderOpen, ArrowLeft } from "lucide-react";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, orderBy, updateDoc } from "firebase/firestore";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
+import { uploadToBlob, deleteFromBlob } from "@/lib/blob";
 
 export default function AdminGalleries() {
   const [galleries, setGalleries] = useState<any[]>([]);
@@ -116,9 +116,7 @@ export default function AdminGalleries() {
       setUploadProgress(`Enviando ${i + 1} de ${files.length}...`);
       
       try {
-        const storageRef = ref(storage, `galleries/${selectedGallery.id}/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
+        const url = await uploadToBlob(file, `galleries/${selectedGallery.id}`);
         
         await addDoc(collection(db, "photos"), {
           filename: file.name,
@@ -163,8 +161,7 @@ export default function AdminGalleries() {
     
     try {
       await deleteDoc(doc(db, "photos", photo.id));
-      const storageRef = ref(storage, photo.url);
-      await deleteObject(storageRef);
+      if (photo.url) await deleteFromBlob(photo.url);
       setPhotos(prev => prev.filter(p => p.id !== photo.id));
     } catch (err) {
       console.error("Erro ao apagar foto:", err);

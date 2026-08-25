@@ -5,6 +5,7 @@ import { Loader2, Trash2, HardDrive, ArrowLeft, CheckSquare } from "lucide-react
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
+import { deleteFromBlob } from "@/lib/blob";
 import Link from "next/link";
 
 export default function AdminStorage() {
@@ -57,8 +58,9 @@ export default function AdminStorage() {
       await Promise.all(photosToDelete.map(async (photo) => {
          try {
            await deleteDoc(doc(db, "photos", photo.id));
-           // Só deleta do storage se for URL do firebase storage (por segurança e para não falhar caso tenha dado erro antes)
-           if (photo.url && photo.url.includes("firebasestorage")) {
+           if (photo.url && photo.url.includes("blob.vercel-storage.com")) {
+              await deleteFromBlob(photo.url);
+           } else if (photo.url && photo.url.includes("firebasestorage")) {
               const storageRef = ref(storage, photo.url);
               await deleteObject(storageRef);
            }

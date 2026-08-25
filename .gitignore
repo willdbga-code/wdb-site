@@ -42,3 +42,7 @@ next-env.d.ts
 
 # credentials
 service-account.json
+
+# local uploads
+/public/uploads
+
