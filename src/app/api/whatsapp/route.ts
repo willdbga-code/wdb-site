@@ -151,11 +151,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch calendar availability
     const calendarContext = await getUpcomingAvailability();
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.6-flash",
-      systemInstruction: SYSTEM_INSTRUCTION + `\n\n** STATUS DA AGENDA DO WILLIAM EM TEMPO REAL **\n${calendarContext}`,
-    });
+    const promptSystem = SYSTEM_INSTRUCTION + `\n\n** STATUS DA AGENDA DO WILLIAM EM TEMPO REAL **\n${calendarContext}`;
 
     let normalizedHistory: { role: string; parts: { text: string }[] }[] = [];
     for (const item of history) {
@@ -170,9 +166,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const chat = model.startChat({ history: normalizedHistory });
-    const result = await chat.sendMessage(incomingText);
-    const responseText = result.response.text();
+    let responseText = "";
+    try {
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: promptSystem,
+      });
+      const chat = model.startChat({ history: normalizedHistory });
+      const result = await chat.sendMessage(incomingText);
+      responseText = result.response.text();
+    } catch (err: any) {
+      console.warn("[Gemini WhatsApp Fallback] Retrying with alternative model...", err.message);
+      const fallbackModel = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        systemInstruction: promptSystem,
+      });
+      const chat = fallbackModel.startChat({ history: normalizedHistory });
+      const result = await chat.sendMessage(incomingText);
+      responseText = result.response.text();
+    }
 
     const updatedHistory = [
       ...history,
