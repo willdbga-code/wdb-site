@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UploadCloud, Copy, CheckCircle2, Loader2, Trash2, Plus, Users, FolderOpen, ArrowLeft } from "lucide-react";
+import { UploadCloud, Copy, CheckCircle2, Loader2, Trash2, Plus, Users, FolderOpen, ArrowLeft, Star } from "lucide-react";
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, orderBy, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { uploadToBlob, deleteFromBlob, getPublicImageUrl } from "@/lib/blob";
@@ -108,13 +108,12 @@ export default function AdminGalleries() {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedGallery) return alert("Selecione uma galeria primeiro!");
-    
     const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
+    if (!files || files.length === 0 || !selectedGallery) return;
+
     setUploading(true);
     let uploadedCount = 0;
+    let firstPhotoUrl = "";
 
     for (let i = 0; i < files.length; i++) {
       const originalFile = files[i];
@@ -129,6 +128,7 @@ export default function AdminGalleries() {
         });
 
         const url = await uploadToBlob(compressedFile, `galleries/${selectedGallery.id}`);
+        if (!firstPhotoUrl) firstPhotoUrl = url;
         
         await addDoc(collection(db, "photos"), {
           filename: originalFile.name,
@@ -144,10 +144,34 @@ export default function AdminGalleries() {
       }
     }
 
+    // If gallery has no cover yet, set the first uploaded photo as cover
+    if (!selectedGallery.coverPhotoUrl && firstPhotoUrl) {
+      try {
+        await updateDoc(doc(db, "galleries", selectedGallery.id), { coverPhotoUrl: firstPhotoUrl });
+        setSelectedGallery((prev: any) => ({ ...prev, coverPhotoUrl: firstPhotoUrl }));
+      } catch (e) {}
+    }
+
     setUploading(false);
     setUploadProgress("");
     if (uploadedCount > 0) {
       loadPhotosForGallery(selectedGallery.id);
+    }
+  };
+
+  const handleSetCoverPhoto = async (photo: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedGallery) return;
+    try {
+      await updateDoc(doc(db, "galleries", selectedGallery.id), {
+        coverPhotoUrl: photo.url,
+      });
+      setSelectedGallery({ ...selectedGallery, coverPhotoUrl: photo.url });
+      setGalleries(prev => prev.map(g => g.id === selectedGallery.id ? { ...g, coverPhotoUrl: photo.url } : g));
+      alert(`Foto "${photo.filename}" definida como Capa Hero da Galeria!`);
+    } catch (err) {
+      console.error("Erro ao definir capa:", err);
+      alert("Erro ao definir capa da galeria.");
     }
   };
 
@@ -320,27 +344,50 @@ export default function AdminGalleries() {
                   {photos.length === 0 ? (
                      <div className="text-center py-16 text-gray-500 uppercase tracking-widest text-xs border border-dashed border-border">Galeria vazia. Envie imagens novas acima.</div>
                   ) : (
-                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                        {photos.map(p => (
-                           <div key={p.id} className="relative aspect-square group overflow-hidden border border-border">
-                              <img src={p.url} className={`w-full h-full object-cover transition-opacity ${p.is_selected ? 'opacity-100' : 'opacity-60 grayscale-[50%]'}`} />
-                              <div className="absolute inset-x-0 bottom-0 bg-black/80 text-center py-1">
-                                 <p className="text-[10px] text-white break-all truncate px-1">{p.filename}</p>
-                              </div>
-                              <button 
-                                 onClick={(e) => handleDeletePhoto(p, e)} 
-                                 className="absolute top-2 left-2 flex items-center justify-center w-6 h-6 bg-red-600/90 hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                 title="Excluir Definitivamente"
-                              >
-                                 <Trash2 className="w-3 h-3 text-white" />
-                              </button>
-                              {p.is_selected && (
-                                <div className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 bg-primary rounded-full" title="Foto Aprovada">
-                                    <CheckCircle2 className="w-4 h-4 text-black" />
-                                </div>
-                              )}
-                           </div>
-                        ))}
+                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                        {photos.map(p => {
+                           const isCover = selectedGallery.coverPhotoUrl === p.url;
+                           return (
+                            <div key={p.id} className={`relative aspect-square group overflow-hidden border transition-all ${isCover ? 'border-primary ring-2 ring-primary/50' : 'border-border'}`}>
+                               <img src={p.url} className={`w-full h-full object-cover transition-opacity ${p.is_selected ? 'opacity-100' : 'opacity-70 grayscale-[40%]'}`} />
+                               
+                               {/* Filename Bar */}
+                               <div className="absolute inset-x-0 bottom-0 bg-black/85 text-center py-1.5 px-2">
+                                  <p className="text-[10px] text-white font-mono break-all truncate">{p.filename}</p>
+                               </div>
+
+                               {/* Delete Button */}
+                               <button 
+                                  onClick={(e) => handleDeletePhoto(p, e)} 
+                                  className="absolute top-2 left-2 flex items-center justify-center w-7 h-7 bg-red-600/90 hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                  title="Excluir Definitivamente"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-white" />
+                               </button>
+
+                               {/* Set As Cover Hero Star Button */}
+                               <button
+                                  onClick={(e) => handleSetCoverPhoto(p, e)}
+                                  className={`absolute top-2 left-11 flex items-center gap-1 px-2 py-1 rounded-full text-[9px] uppercase tracking-wider font-bold transition-all z-10 ${
+                                    isCover 
+                                      ? 'bg-primary text-black opacity-100' 
+                                      : 'bg-black/70 text-gray-300 hover:text-white hover:bg-primary hover:text-black opacity-0 group-hover:opacity-100'
+                                  }`}
+                                  title={isCover ? "Foto Atual da Capa Hero" : "Definir esta foto como Capa Hero da Galeria"}
+                               >
+                                  <Star className={`w-3 h-3 ${isCover ? 'fill-black' : ''}`} />
+                                  <span>{isCover ? "Capa Hero" : "Capa"}</span>
+                               </button>
+
+                               {/* Client Selection Badge */}
+                               {p.is_selected && (
+                                 <div className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 bg-primary rounded-full z-10" title="Foto Aprovada pelo Cliente">
+                                     <CheckCircle2 className="w-4 h-4 text-black" />
+                                 </div>
+                               )}
+                            </div>
+                           );
+                        })}
                      </div>
                   )}
                </div>
