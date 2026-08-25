@@ -405,7 +405,7 @@ export async function POST(req: NextRequest) {
     // ── Configuração de Envio de Áudio Dinâmica (Firestore + Fallback .env) ──
     let isAudioEnabled = process.env.WHATSAPP_AUDIO_ENABLED !== "false";
     let audioMode = process.env.WHATSAPP_AUDIO_MODE || "mirror"; // "mirror" | "always" | "disabled"
-    let configuredVoiceId = process.env.ELEVENLABS_VOICE_ID || "2GipH0WdOpsTaVrk5RwE";
+    let configuredVoiceId = process.env.ELEVENLABS_VOICE_ID || "bIHbv24MWmeRgasZH58o";
 
     try {
       const siteConfigSnap = await getDoc(doc(db, "settings", "site_config"));

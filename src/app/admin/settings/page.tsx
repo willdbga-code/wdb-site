@@ -13,7 +13,7 @@ export default function AdminSettings() {
     heroImage: "",
     aboutImage: "",
     signatureIcon: "",
-    elevenLabsVoiceId: "2GipH0WdOpsTaVrk5RwE",
+    elevenLabsVoiceId: "bIHbv24MWmeRgasZH58o",
     whatsappAudioMode: "mirror", // "mirror" | "always" | "disabled"
     whatsappAudioEnabled: true,
   });

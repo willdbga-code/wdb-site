@@ -1,5 +1,5 @@
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "";
-const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "2GipH0WdOpsTaVrk5RwE";
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "sk_644beae7b9ce5fd15a8fef57692935b97a0b3d320cb4258f";
+const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "bIHbv24MWmeRgasZH58o";
 
 /**
  * Higieniza o texto para que a ElevenLabs fale de forma 100% natural,
