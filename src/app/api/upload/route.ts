@@ -29,8 +29,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const finalUrl = blob.url.includes("private.blob.vercel-storage.com")
+        ? `/api/media?url=${encodeURIComponent(blob.url)}`
+        : blob.url;
+
       return NextResponse.json({
-        url: blob.url,
+        url: finalUrl,
+        rawUrl: blob.url,
         pathname: blob.pathname,
         contentType: blob.contentType,
       });

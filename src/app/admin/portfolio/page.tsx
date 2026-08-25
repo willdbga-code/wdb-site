@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { UploadCloud, Trash2, Loader2, Image as ImageIcon } from "lucide-react";
 import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { uploadToBlob, deleteFromBlob } from "@/lib/blob";
+import { uploadToBlob, deleteFromBlob, getPublicImageUrl } from "@/lib/blob";
 
 export default function AdminPortfolio() {
   const [photos, setPhotos] = useState<any[]>([]);
@@ -22,7 +22,11 @@ export default function AdminPortfolio() {
     try {
       const q = query(collection(db, "portfolio_public"), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
-      setPhotos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setPhotos(snap.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        url: getPublicImageUrl((doc.data() as any).url)
+      })));
     } catch (err) {
       console.error(err);
     } finally {

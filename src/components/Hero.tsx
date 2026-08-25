@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getPublicImageUrl } from "@/lib/blob";
 
 export default function Hero() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -16,7 +17,7 @@ export default function Hero() {
       try {
         const snap = await getDoc(doc(db, "settings", "site_config"));
         if (snap.exists() && snap.data().heroImage) {
-          setBgImage(snap.data().heroImage);
+          setBgImage(getPublicImageUrl(snap.data().heroImage));
         } else {
           setBgImage("https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=2500");
         }
@@ -54,7 +55,7 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-[#030303] z-10" />
         {bgImage ? (
            <img 
-             src={bgImage} 
+             src={getPublicImageUrl(bgImage)} 
              alt="William Del Barrio Art Photography"
              className="w-full h-full object-cover object-[center_30%] grayscale-[80%] contrast-125 animate-in fade-in duration-1000"
            />

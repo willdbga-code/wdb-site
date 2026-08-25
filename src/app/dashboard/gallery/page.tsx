@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { collection, query, getDocs, doc, writeBatch, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/AuthContext";
+import { getPublicImageUrl } from "@/lib/blob";
 
 function GalleryViewContent() {
   const { user } = useAuth();
@@ -54,7 +55,11 @@ function GalleryViewContent() {
     try {
       const q = query(collection(db, "photos"), where("galleryId", "==", gallery.id));
       const snap = await getDocs(q);
-      const fetched = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      const fetched = snap.docs.map(d => ({ 
+        id: d.id, 
+        ...d.data(),
+        url: getPublicImageUrl((d.data() as any).url)
+      } as any));
       setPhotos(fetched);
       
       const preSelected = fetched.filter((p: any) => p.is_selected).map((p: any) => p.id);

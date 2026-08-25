@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { uploadToBlob } from "@/lib/blob";
+import { uploadToBlob, getPublicImageUrl } from "@/lib/blob";
 import { Upload, Save, CheckCircle, Loader2 } from "lucide-react";
 
 export default function AdminSettings() {
@@ -91,7 +91,7 @@ export default function AdminSettings() {
            </div>
            <div className="aspect-video bg-surface overflow-hidden flex items-center justify-center border border-border border-dashed">
               {settings.heroImage ? (
-                  <img src={settings.heroImage} className="w-full h-full object-cover opacity-80" alt="Hero Preview" />
+                  <img src={getPublicImageUrl(settings.heroImage)} className="w-full h-full object-cover opacity-80" alt="Hero Preview" />
               ) : (
                   <span className="text-gray-600 text-xs uppercase tracking-widest">Nenhuma Imagem</span>
               )}
@@ -110,7 +110,7 @@ export default function AdminSettings() {
            </div>
            <div className="aspect-[3/4] max-w-[250px] bg-surface overflow-hidden flex items-center justify-center border border-border border-dashed">
               {settings.aboutImage ? (
-                  <img src={settings.aboutImage} className="w-full h-full object-cover opacity-80" alt="About Preview" />
+                  <img src={getPublicImageUrl(settings.aboutImage)} className="w-full h-full object-cover opacity-80" alt="About Preview" />
               ) : (
                   <span className="text-gray-600 text-xs uppercase tracking-widest">Nenhuma</span>
               )}
@@ -129,7 +129,7 @@ export default function AdminSettings() {
            </div>
            <div className="h-24 max-w-[250px] bg-surface overflow-hidden flex items-center justify-center border border-border border-dashed p-4">
               {settings.signatureIcon ? (
-                  <img src={settings.signatureIcon} className="h-full object-contain invert opacity-80" alt="Signature Preview" />
+                  <img src={getPublicImageUrl(settings.signatureIcon)} className="h-full object-contain invert opacity-80" alt="Signature Preview" />
               ) : (
                   <span className="text-gray-600 text-[10px] uppercase tracking-widest text-center">Nenhuma<br/>(Usará a padrão)</span>
               )}

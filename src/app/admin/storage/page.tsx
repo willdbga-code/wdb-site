@@ -5,7 +5,7 @@ import { Loader2, Trash2, HardDrive, ArrowLeft, CheckSquare } from "lucide-react
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
-import { deleteFromBlob } from "@/lib/blob";
+import { deleteFromBlob, getPublicImageUrl } from "@/lib/blob";
 import Link from "next/link";
 
 export default function AdminStorage() {
@@ -22,12 +22,20 @@ export default function AdminStorage() {
     try {
       const q = query(collection(db, "photos"), orderBy("uploadedAt", "desc"));
       const snap = await getDocs(q);
-      setPhotos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setPhotos(snap.docs.map(d => ({ 
+        id: d.id, 
+        ...d.data(),
+        url: getPublicImageUrl((d.data() as any).url)
+      })));
     } catch (err) {
       console.error(err);
       try {
          const snap = await getDocs(collection(db, "photos"));
-         setPhotos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+         setPhotos(snap.docs.map(d => ({ 
+           id: d.id, 
+           ...d.data(),
+           url: getPublicImageUrl((d.data() as any).url)
+         })));
       } catch(e) { console.error(e) }
     } finally {
       setLoading(false);

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getPublicImageUrl } from "@/lib/blob";
 
 export default function About() {
   const [images, setImages] = useState({
@@ -18,8 +19,8 @@ export default function About() {
         if (snap.exists()) {
           const data = snap.data();
           setImages({
-            about: data.aboutImage || images.about,
-            signature: data.signatureIcon || images.signature
+            about: getPublicImageUrl(data.aboutImage || images.about),
+            signature: getPublicImageUrl(data.signatureIcon || images.signature)
           });
         }
       } catch (err) {}

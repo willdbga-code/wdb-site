@@ -1,6 +1,14 @@
 /**
- * Helper utility to upload and delete files via Vercel Blob
+ * Helper utility to upload, delete, and view files via Vercel Blob
  */
+
+export function getPublicImageUrl(url: string | undefined | null): string {
+  if (!url) return "";
+  if (url.includes("private.blob.vercel-storage.com") && !url.startsWith("/api/media")) {
+    return `/api/media?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
 
 export async function uploadToBlob(file: File, folder = "uploads"): Promise<string> {
   const formData = new FormData();
@@ -22,9 +30,7 @@ export async function uploadToBlob(file: File, folder = "uploads"): Promise<stri
 }
 
 export async function deleteFromBlob(url: string): Promise<boolean> {
-  if (!url || !url.includes("blob.vercel-storage.com")) {
-    return false;
-  }
+  if (!url) return false;
 
   try {
     const res = await fetch(`/api/upload?url=${encodeURIComponent(url)}`, {

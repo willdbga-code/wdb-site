@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { collection, query, getDocs, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getPublicImageUrl } from "@/lib/blob";
 
 export default function Portfolio() {
   const [casamentos, setCasamentos] = useState<any[]>([]);
@@ -18,7 +19,11 @@ export default function Portfolio() {
       try {
         const q = query(collection(db, "portfolio_public"), orderBy("createdAt", "desc"));
         const snap = await getDocs(q);
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const data = snap.docs.map(d => ({ 
+          id: d.id, 
+          ...d.data(), 
+          url: getPublicImageUrl((d.data() as any).url) 
+        }));
 
         setCasamentos(data.filter((item: any) => item.category === "casamentos"));
         setEnsaios(data.filter((item: any) => item.category === "ensaios"));

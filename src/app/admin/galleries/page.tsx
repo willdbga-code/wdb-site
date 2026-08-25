@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { UploadCloud, Copy, CheckCircle2, Loader2, Trash2, Plus, Users, FolderOpen, ArrowLeft } from "lucide-react";
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, orderBy, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { uploadToBlob, deleteFromBlob } from "@/lib/blob";
+import { uploadToBlob, deleteFromBlob, getPublicImageUrl } from "@/lib/blob";
 
 export default function AdminGalleries() {
   const [galleries, setGalleries] = useState<any[]>([]);
@@ -50,7 +50,11 @@ export default function AdminGalleries() {
     try {
       const q = query(collection(db, "photos"), where("galleryId", "==", galleryId));
       const snap = await getDocs(q);
-      setPhotos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setPhotos(snap.docs.map(d => ({ 
+        id: d.id, 
+        ...d.data(),
+        url: getPublicImageUrl((d.data() as any).url)
+      })));
     } catch (err) {
       console.error(err);
     }
