@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { getUpcomingAvailability } from "@/lib/calendar";
 import { sendLeadEmail } from "@/lib/mailer";
+import { generateVoiceNote } from "@/lib/elevenlabs";
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "https://evolution-api-production-2413.up.railway.app";
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "wdb-copilot-secret-2024";
@@ -86,14 +87,71 @@ Sua seleção de fotos e a entrega final das obras serão feitas exclusivamente 
 `;
 
 async function sendWhatsAppMessage(to: string, text: string) {
-  await fetch(`${EVOLUTION_API_URL}/message/sendText/${INSTANCE_NAME}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: EVOLUTION_API_KEY,
-    },
-    body: JSON.stringify({ number: to, text }),
-  });
+  try {
+    await fetch(`${EVOLUTION_API_URL}/message/sendText/${INSTANCE_NAME}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({ number: to, text }),
+    });
+  } catch (err: any) {
+    console.error("[Evolution API] Error sending text message:", err.message);
+  }
+}
+
+async function sendWhatsAppVoiceNote(to: string, audioBase64: string) {
+  try {
+    const audioPayload = audioBase64.startsWith("data:")
+      ? audioBase64
+      : `data:audio/mp3;base64,${audioBase64}`;
+
+    await fetch(`${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${INSTANCE_NAME}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({
+        number: to,
+        audio: audioPayload,
+        options: {
+          delay: 1500,
+          presence: "recording",
+          encoding: true,
+        },
+      }),
+    });
+  } catch (err: any) {
+    console.error("[Evolution API] Error sending voice note:", err.message);
+  }
+}
+
+async function downloadMediaBase64(messageKey: any): Promise<{ base64: string; mimetype: string } | null> {
+  try {
+    const response = await fetch(`${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${INSTANCE_NAME}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify({ message: { key: messageKey } }),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data?.base64) {
+      return {
+        base64: data.base64,
+        mimetype: data.mimetype || "audio/ogg",
+      };
+    }
+    return null;
+  } catch (error: any) {
+    console.error("[Evolution API] Error downloading media base64:", error.message);
+    return null;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -123,11 +181,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "personal_contact_ignored" }, { status: 200 });
     }
 
-    // Extract text from incoming message
-    const incomingText =
-      messageType?.conversation ||
-      messageType?.extendedTextMessage?.text ||
-      "";
+    // Check if incoming is an audio message
+    const isAudio = !!messageType?.audioMessage || !!messageType?.ptvMessage;
+    let incomingText = "";
+    let incomingWasAudio = false;
+
+    if (isAudio) {
+      const mediaData = await downloadMediaBase64(message?.key);
+      if (mediaData && mediaData.base64) {
+        try {
+          const sttModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+          const cleanBase64 = mediaData.base64.replace(/^data:audio\/[^;]+;base64,/, "");
+          const sttResp = await sttModel.generateContent([
+            {
+              inlineData: {
+                data: cleanBase64,
+                mimeType: mediaData.mimetype || "audio/ogg",
+              },
+            },
+            {
+              text: "Transcreva com precisão o que a pessoa está dizendo neste áudio em português brasileiro. Retorne apenas o texto transcrito, sem aspas, explicações ou notas adicionais.",
+            },
+          ]);
+          incomingText = sttResp.response.text().trim();
+          incomingWasAudio = true;
+          console.log(`[Audio STT] Transcrito com sucesso de ${phoneNumber}: "${incomingText}"`);
+        } catch (sttErr: any) {
+          console.error("[STT Error] Falha ao transcrever áudio:", sttErr.message);
+          incomingText = "Olá, te enviei uma mensagem de áudio.";
+        }
+      } else {
+        incomingText = "Olá!";
+      }
+    } else {
+      // Extract text from incoming message
+      incomingText =
+        messageType?.conversation ||
+        messageType?.extendedTextMessage?.text ||
+        "";
+    }
 
     if (!incomingText.trim()) {
       return NextResponse.json({ status: "no_text" }, { status: 200 });
@@ -143,7 +235,7 @@ export async function POST(req: NextRequest) {
 
     if (sessionSnap.exists()) {
       const data = sessionSnap.data();
-      const lastActivity = data.updatedAt ? (data.updatedAt.seconds * 1000) : 0;
+      const lastActivity = data.updatedAt ? data.updatedAt.seconds * 1000 : 0;
       if (now - lastActivity < SESSION_TIMEOUT_MS) {
         history = data.history || [];
       }
@@ -198,18 +290,23 @@ export async function POST(req: NextRequest) {
 
     const updatedHistory = [
       ...history,
-      { role: "user", text: incomingText },
+      { role: "user", text: incomingWasAudio ? `[Áudio]: ${incomingText}` : incomingText },
       { role: "model", text: responseText },
     ].slice(-40);
 
-    await setDoc(sessionRef, {
-      history: updatedHistory,
-      phoneNumber,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+    await setDoc(
+      sessionRef,
+      {
+        history: updatedHistory,
+        phoneNumber,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
 
     const transferMatch = responseText.match(/\[TRANSFER_WHATSAPP([\s\S]*?)\]/);
     let cleanResponse = responseText.replace(/\[TRANSFER_WHATSAPP[\s\S]*?\]/g, "").trim();
+    let paymentLinkGenerated = "";
 
     if (transferMatch) {
       const payload = transferMatch[1].trim();
@@ -246,17 +343,18 @@ export async function POST(req: NextRequest) {
                 {
                   quantity: 1,
                   price: signalCents,
-                  description: "Sinal de Reserva - Estúdio William Del Barrio (10%)"
-                }
+                  description: "Sinal de Reserva - Estúdio William Del Barrio (10%)",
+                },
               ],
               customer: {
                 name: "Cliente WDB WhatsApp",
                 phone_number: `+${phoneNumber}`,
-              }
-            })
+              },
+            }),
           });
           const payData = await infinitePayResp.json();
           if (payData && payData.url) {
+            paymentLinkGenerated = payData.url;
             cleanResponse += `\n\n🔗 *Link para pagamento do Sinal (10% - R$ ${signalValue.toFixed(2).replace(".", ",")} )*:\n${payData.url}\n\n*_Por favor, não se esqueça de mandar o comprovante aqui pra gente!_*`;
           }
         } catch (paymentErr: any) {
@@ -266,9 +364,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await sendWhatsAppMessage(remoteJid, cleanResponse);
+    // ── Configuração de Envio de Áudio Dinâmica (Firestore + Fallback .env) ──
+    let isAudioEnabled = process.env.WHATSAPP_AUDIO_ENABLED !== "false";
+    let audioMode = process.env.WHATSAPP_AUDIO_MODE || "mirror"; // "mirror" | "always" | "disabled"
+    let configuredVoiceId = process.env.ELEVENLABS_VOICE_ID || "2GipH0WdOpsTaVrk5RwE";
 
-    return NextResponse.json({ status: "success" }, { status: 200 });
+    try {
+      const siteConfigSnap = await getDoc(doc(db, "settings", "site_config"));
+      if (siteConfigSnap.exists()) {
+        const cfg = siteConfigSnap.data();
+        if (cfg.whatsappAudioEnabled !== undefined) isAudioEnabled = !!cfg.whatsappAudioEnabled;
+        if (cfg.whatsappAudioMode) audioMode = cfg.whatsappAudioMode;
+        if (cfg.elevenLabsVoiceId) configuredVoiceId = cfg.elevenLabsVoiceId;
+      }
+    } catch (cfgErr) {
+      console.warn("[WhatsApp Route] Erro ao ler site_config do Firestore:", cfgErr);
+    }
+
+    const shouldSendAudio =
+      isAudioEnabled &&
+      audioMode !== "disabled" &&
+      (incomingWasAudio || audioMode === "always" || (audioMode === "smart" && (incomingWasAudio || !!transferMatch)));
+
+    let audioSentSuccessfully = false;
+
+    if (shouldSendAudio) {
+      console.log(`[ElevenLabs] Gerando áudio de resposta para ${phoneNumber} (Voz: ${configuredVoiceId})...`);
+      const voiceResult = await generateVoiceNote(cleanResponse, configuredVoiceId);
+
+      if (voiceResult && voiceResult.base64) {
+        await sendWhatsAppVoiceNote(remoteJid, voiceResult.base64);
+        audioSentSuccessfully = true;
+        console.log(`[ElevenLabs] Nota de voz enviada com sucesso para ${phoneNumber}!`);
+
+        // Se houver links importantes (ex: InfinitePay ou painel), enviamos uma mensagem de apoio com os links clicáveis
+        if (paymentLinkGenerated) {
+          const companionMsg = `🔗 *Link para pagamento do Sinal:*\n${paymentLinkGenerated}\n\n_Assim que pagar, envie o comprovante aqui para garantirmos a data na agenda! ✨_`;
+          await sendWhatsAppMessage(remoteJid, companionMsg);
+        }
+      } else {
+        console.warn("[ElevenLabs] Falha ao gerar áudio, fazendo fallback para texto.");
+      }
+    }
+
+    // Se o áudio não foi enviado (por configuração, modo texto ou fallback de erro), envia mensagem de texto padrão
+    if (!audioSentSuccessfully) {
+      await sendWhatsAppMessage(remoteJid, cleanResponse);
+    }
+
+    return NextResponse.json({ status: "success", audioSent: audioSentSuccessfully }, { status: 200 });
   } catch (error: any) {
     console.error("[WhatsApp Webhook] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
