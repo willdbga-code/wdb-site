@@ -174,11 +174,15 @@ export async function POST(req: NextRequest) {
 
     const phoneNumber = remoteJid.replace("@s.whatsapp.net", "");
 
-    // Check personal contacts in Firestore
-    const personalRef = doc(db, "whatsapp_personal_contacts", phoneNumber);
-    const personalSnap = await getDoc(personalRef);
-    if (personalSnap.exists()) {
-      return NextResponse.json({ status: "personal_contact_ignored" }, { status: 200 });
+    // Check personal contacts in Firestore (fail-safe)
+    try {
+      const personalRef = doc(db, "whatsapp_personal_contacts", phoneNumber);
+      const personalSnap = await getDoc(personalRef);
+      if (personalSnap.exists()) {
+        return NextResponse.json({ status: "personal_contact_ignored" }, { status: 200 });
+      }
+    } catch (personalErr: any) {
+      console.warn("[WhatsApp Webhook] Could not check personal contacts:", personalErr.message);
     }
 
     // Check if incoming is an audio message
@@ -189,25 +193,35 @@ export async function POST(req: NextRequest) {
     if (isAudio) {
       const mediaData = await downloadMediaBase64(message?.key);
       if (mediaData && mediaData.base64) {
-        try {
-          const sttModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-          const cleanBase64 = mediaData.base64.replace(/^data:audio\/[^;]+;base64,/, "");
-          const sttResp = await sttModel.generateContent([
-            {
-              inlineData: {
-                data: cleanBase64,
-                mimeType: mediaData.mimetype || "audio/ogg",
+        const cleanBase64 = mediaData.base64.replace(/^data:audio\/[^;]+;base64,/, "");
+        const sttModels = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+        let transcribed = false;
+
+        for (const mName of sttModels) {
+          try {
+            const sttModel = genAI.getGenerativeModel({ model: mName });
+            const sttResp = await sttModel.generateContent([
+              {
+                inlineData: {
+                  data: cleanBase64,
+                  mimeType: mediaData.mimetype || "audio/ogg",
+                },
               },
-            },
-            {
-              text: "Transcreva com precisão o que a pessoa está dizendo neste áudio em português brasileiro. Retorne apenas o texto transcrito, sem aspas, explicações ou notas adicionais.",
-            },
-          ]);
-          incomingText = sttResp.response.text().trim();
-          incomingWasAudio = true;
-          console.log(`[Audio STT] Transcrito com sucesso de ${phoneNumber}: "${incomingText}"`);
-        } catch (sttErr: any) {
-          console.error("[STT Error] Falha ao transcrever áudio:", sttErr.message);
+              {
+                text: "Transcreva com precisão o que a pessoa está dizendo neste áudio em português brasileiro. Retorne apenas o texto transcrito, sem aspas, explicações ou notas adicionais.",
+              },
+            ]);
+            incomingText = sttResp.response.text().trim();
+            incomingWasAudio = true;
+            transcribed = true;
+            console.log(`[Audio STT (${mName})] Transcrito com sucesso de ${phoneNumber}: "${incomingText}"`);
+            break;
+          } catch (sttErr: any) {
+            console.warn(`[STT Fallback] Falha com ${mName}:`, sttErr.message);
+          }
+        }
+
+        if (!transcribed || !incomingText) {
           incomingText = "Olá, te enviei uma mensagem de áudio.";
         }
       } else {
@@ -225,20 +239,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "no_text" }, { status: 200 });
     }
 
-    // Load or create session in Firestore (24h timeout)
-    const sessionRef = doc(db, "whatsapp_sessions", phoneNumber);
-    const sessionSnap = await getDoc(sessionRef);
-
+    // Load or create session in Firestore (24h timeout, fail-safe)
     let history: { role: string; text: string }[] = [];
-    const now = Date.now();
-    const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+    const sessionRef = doc(db, "whatsapp_sessions", phoneNumber);
+    try {
+      const sessionSnap = await getDoc(sessionRef);
+      const now = Date.now();
+      const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
-    if (sessionSnap.exists()) {
-      const data = sessionSnap.data();
-      const lastActivity = data.updatedAt ? data.updatedAt.seconds * 1000 : 0;
-      if (now - lastActivity < SESSION_TIMEOUT_MS) {
-        history = data.history || [];
+      if (sessionSnap.exists()) {
+        const data = sessionSnap.data();
+        const lastActivity = data.updatedAt ? data.updatedAt.seconds * 1000 : 0;
+        if (now - lastActivity < SESSION_TIMEOUT_MS) {
+          history = data.history || [];
+        }
       }
+    } catch (sessionErr: any) {
+      console.warn("[WhatsApp Webhook] Could not load session from Firestore:", sessionErr.message);
     }
 
     // Fetch calendar availability
@@ -259,33 +276,25 @@ export async function POST(req: NextRequest) {
     }
 
     let responseText = "";
-    try {
-      const model = genAI.getGenerativeModel({
-        model: "gemini-3.6-flash",
-        systemInstruction: promptSystem,
-      });
-      const chat = model.startChat({ history: normalizedHistory });
-      const result = await chat.sendMessage(incomingText);
-      responseText = result.response.text();
-    } catch (err: any) {
-      console.warn("[Gemini WhatsApp Fallback] Retrying with alternative model...", err.message);
+    const activeModels = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+    
+    for (const mName of activeModels) {
       try {
-        const fallbackModel = genAI.getGenerativeModel({
-          model: "gemini-2.0-flash",
+        const model = genAI.getGenerativeModel({
+          model: mName,
           systemInstruction: promptSystem,
         });
-        const chat = fallbackModel.startChat({ history: normalizedHistory });
+        const chat = model.startChat({ history: normalizedHistory });
         const result = await chat.sendMessage(incomingText);
         responseText = result.response.text();
-      } catch (err2: any) {
-        const legacyModel = genAI.getGenerativeModel({
-          model: "gemini-1.5-flash",
-          systemInstruction: promptSystem,
-        });
-        const chat = legacyModel.startChat({ history: normalizedHistory });
-        const result = await chat.sendMessage(incomingText);
-        responseText = result.response.text();
+        if (responseText) break;
+      } catch (err: any) {
+        console.warn(`[Gemini WhatsApp Fallback] Error with ${mName}:`, err.message);
       }
+    }
+
+    if (!responseText) {
+      responseText = "Olá! Seja muito bem-vindo ao Estúdio William Del Barrio. ✨ Em que posso te ajudar hoje?";
     }
 
     const updatedHistory = [
@@ -294,15 +303,20 @@ export async function POST(req: NextRequest) {
       { role: "model", text: responseText },
     ].slice(-40);
 
-    await setDoc(
-      sessionRef,
-      {
-        history: updatedHistory,
-        phoneNumber,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    // Save session in Firestore (fail-safe)
+    try {
+      await setDoc(
+        sessionRef,
+        {
+          history: updatedHistory,
+          phoneNumber,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (saveErr: any) {
+      console.warn("[WhatsApp Webhook] Could not save session to Firestore:", saveErr.message);
+    }
 
     const transferMatch = responseText.match(/\[TRANSFER_WHATSAPP([\s\S]*?)\]/);
     let cleanResponse = responseText.replace(/\[TRANSFER_WHATSAPP[\s\S]*?\]/g, "").trim();
@@ -310,12 +324,16 @@ export async function POST(req: NextRequest) {
 
     if (transferMatch) {
       const payload = transferMatch[1].trim();
-      await addDoc(collection(db, "leads"), {
-        source: "whatsapp",
-        phoneNumber,
-        payload,
-        createdAt: serverTimestamp(),
-      });
+      try {
+        await addDoc(collection(db, "leads"), {
+          source: "whatsapp",
+          phoneNumber,
+          payload,
+          createdAt: serverTimestamp(),
+        });
+      } catch (leadDbErr: any) {
+        console.warn("[WhatsApp Webhook] Could not save lead to Firestore:", leadDbErr.message);
+      }
       sendLeadEmail(payload).catch((e) => console.error("Email error:", e));
 
       const valueMatch = payload.match(/Valor Total Estimado: R\$\s*([\d.,]+)/);

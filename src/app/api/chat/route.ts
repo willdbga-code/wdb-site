@@ -112,33 +112,25 @@ export async function POST(req: NextRequest) {
     }
 
     let responseText = "";
-    try {
-      const model = genAI.getGenerativeModel({
-        model: "gemini-3.6-flash",
-        systemInstruction: promptSystem,
-      });
-      const chat = model.startChat({ history: normalizedHistory });
-      const result = await chat.sendMessage(message);
-      responseText = result.response.text();
-    } catch (err: any) {
-      console.warn("[Gemini Fallback] Retrying with alternative model...", err.message);
+    const activeModels = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+
+    for (const mName of activeModels) {
       try {
-        const fallbackModel = genAI.getGenerativeModel({
-          model: "gemini-2.0-flash",
+        const model = genAI.getGenerativeModel({
+          model: mName,
           systemInstruction: promptSystem,
         });
-        const chat = fallbackModel.startChat({ history: normalizedHistory });
+        const chat = model.startChat({ history: normalizedHistory });
         const result = await chat.sendMessage(message);
         responseText = result.response.text();
-      } catch (err2: any) {
-        const legacyModel = genAI.getGenerativeModel({
-          model: "gemini-1.5-flash",
-          systemInstruction: promptSystem,
-        });
-        const chat = legacyModel.startChat({ history: normalizedHistory });
-        const result = await chat.sendMessage(message);
-        responseText = result.response.text();
+        if (responseText) break;
+      } catch (err: any) {
+        console.warn(`[Gemini Fallback] Error with ${mName}:`, err.message);
       }
+    }
+
+    if (!responseText) {
+      responseText = "Olá! Seja muito bem-vindo ao Estúdio William Del Barrio. ✨ Em que posso te ajudar hoje?";
     }
 
     const transferMatch = responseText.match(/\[TRANSFER_WHATSAPP([\s\S]*?)\]/);

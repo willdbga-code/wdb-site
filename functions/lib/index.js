@@ -300,10 +300,7 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
         // ── Build Gemini history ──
         const calendarContext = await getUpcomingAvailability(GOOGLE_CLIENT_EMAIL_PARAM.value(), GOOGLE_PRIVATE_KEY_PARAM.value());
         const genAI = new generative_ai_1.GoogleGenerativeAI(GEMINI_API_KEY.value());
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
-            systemInstruction: SYSTEM_INSTRUCTION + `\n\n** STATUS DA AGENDA DO WILLIAM EM TEMPO REAL **\n${calendarContext}`,
-        });
+        const promptSystem = SYSTEM_INSTRUCTION + `\n\n** STATUS DA AGENDA DO WILLIAM EM TEMPO REAL **\n${calendarContext}`;
         // Normalize history for Gemini (must alternate user/model, start with user)
         let normalizedHistory = [];
         for (const item of history) {
@@ -318,20 +315,36 @@ exports.whatsappWebhook = functions.https.onRequest(async (req, res) => {
                 normalizedHistory.push({ role: item.role, parts: [{ text: item.text }] });
             }
         }
-        const chat = model.startChat({ history: normalizedHistory });
-        // ── Send message to Gemini (text or multimodal audio) ──
-        let result;
-        if (audioBase64) {
-            // Multimodal: send audio inline + context instruction
-            result = await chat.sendMessage([
-                { inlineData: { data: audioBase64, mimeType: audioMimeType } },
-                { text: "O cliente acabou de enviar este áudio de voz no WhatsApp. Ouça com atenção, entenda o que ele está dizendo e responda normalmente, como se ele tivesse digitado a mensagem." },
-            ]);
+        let responseText = "";
+        const activeModels = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+        for (const mName of activeModels) {
+            try {
+                const model = genAI.getGenerativeModel({
+                    model: mName,
+                    systemInstruction: promptSystem,
+                });
+                const chat = model.startChat({ history: normalizedHistory });
+                let result;
+                if (audioBase64) {
+                    result = await chat.sendMessage([
+                        { inlineData: { data: audioBase64, mimeType: audioMimeType } },
+                        { text: "O cliente acabou de enviar este áudio de voz no WhatsApp. Ouça com atenção, entenda o que ele está dizendo e responda normalmente, como se ele tivesse digitado a mensagem." },
+                    ]);
+                }
+                else {
+                    result = await chat.sendMessage(incomingText);
+                }
+                responseText = result.response.text();
+                if (responseText)
+                    break;
+            }
+            catch (err) {
+                functions.logger.warn(`[Gemini Fallback] Error with ${mName}:`, err.message);
+            }
         }
-        else {
-            result = await chat.sendMessage(incomingText);
+        if (!responseText) {
+            responseText = "Olá! Seja muito bem-vindo ao Estúdio William Del Barrio. ✨ Em que posso te ajudar hoje?";
         }
-        const responseText = result.response.text();
         // ── Save updated history to Firestore ──
         const updatedHistory = [
             ...history,
