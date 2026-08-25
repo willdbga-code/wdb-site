@@ -52,8 +52,9 @@ export const campaigns: Campaign[] = [
     features: [
       "Ensaio com Fundo Neutro ou Ambientado",
       "Direção de Poses para Autoridade",
-      "Fotos Entregues Tratadas (Evoto/Lightroom)",
-      "Guia de Preparação Exclusivo"
+      "35 Fotos Comerciais Tratadas",
+      "Criação de Landing Page Profissional Exclusiva",
+      "Guia de Posicionamento Digital"
     ],
     ctaText: "Solicitar Orçamento de Retrato",
     whatsappMessage: "Olá! Tenho interesse no pacote de Retrato Corporativo.",
