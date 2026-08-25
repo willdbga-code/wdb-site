@@ -101,11 +101,11 @@ async function sendWhatsAppMessage(to: string, text: string) {
   }
 }
 
-async function sendWhatsAppVoiceNote(to: string, audioBase64: string) {
+async function sendWhatsAppVoiceNote(to: string, audioBase64: string): Promise<boolean> {
   try {
     const rawBase64 = audioBase64.replace(/^data:audio\/[^;]+;base64,/, "");
 
-    await fetch(`${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${INSTANCE_NAME}`, {
+    const resp = await fetch(`${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${INSTANCE_NAME}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -121,8 +121,13 @@ async function sendWhatsAppVoiceNote(to: string, audioBase64: string) {
         },
       }),
     });
+    const ok = resp.ok;
+    const data = await resp.json();
+    console.log(`[Evolution API] Voice note response (${resp.status}):`, data);
+    return ok;
   } catch (err: any) {
     console.error("[Evolution API] Error sending voice note:", err.message);
+    return false;
   }
 }
 
@@ -431,14 +436,18 @@ export async function POST(req: NextRequest) {
       const voiceResult = await generateVoiceNote(cleanResponse, configuredVoiceId);
 
       if (voiceResult && voiceResult.base64) {
-        await sendWhatsAppVoiceNote(replyJid, voiceResult.base64);
-        audioSentSuccessfully = true;
-        console.log(`[ElevenLabs] Nota de voz enviada com sucesso para ${replyJid}!`);
+        const sent = await sendWhatsAppVoiceNote(replyJid, voiceResult.base64);
+        if (sent) {
+          audioSentSuccessfully = true;
+          console.log(`[ElevenLabs] Nota de voz enviada com sucesso para ${replyJid}!`);
 
-        // Se houver links importantes (ex: InfinitePay ou painel), enviamos uma mensagem de apoio com os links clicáveis
-        if (paymentLinkGenerated) {
-          const companionMsg = `🔗 *Link para pagamento do Sinal:*\n${paymentLinkGenerated}\n\n_Assim que pagar, envie o comprovante aqui para garantirmos a data na agenda! ✨_`;
-          await sendWhatsAppMessage(replyJid, companionMsg);
+          // Se houver links importantes (ex: InfinitePay ou painel), enviamos uma mensagem de apoio com os links clicáveis
+          if (paymentLinkGenerated) {
+            const companionMsg = `🔗 *Link para pagamento do Sinal:*\n${paymentLinkGenerated}\n\n_Assim que pagar, envie o comprovante aqui para garantirmos a data na agenda! ✨_`;
+            await sendWhatsAppMessage(replyJid, companionMsg);
+          }
+        } else {
+          console.warn("[Evolution API] Falha ao despachar áudio, fazendo fallback para texto.");
         }
       } else {
         console.warn("[ElevenLabs] Falha ao gerar áudio, fazendo fallback para texto.");
