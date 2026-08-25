@@ -16,11 +16,18 @@ export async function POST(request: NextRequest) {
     const cleanFileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
     const filename = `${folder}/${cleanFileName}`;
 
-    // 1. If BLOB_READ_WRITE_TOKEN is configured, use Vercel Blob
+    // 1. If BLOB_READ_WRITE_TOKEN is configured (in Vercel or .env.local), use Vercel Blob
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(filename, file, {
-        access: "public",
-      });
+      let blob;
+      try {
+        blob = await put(filename, file, { access: "public" });
+      } catch (err: any) {
+        if (err.message && err.message.includes("private store")) {
+          blob = await put(filename, file, { access: "private" });
+        } else {
+          throw err;
+        }
+      }
 
       return NextResponse.json({
         url: blob.url,
