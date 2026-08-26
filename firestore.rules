@@ -14,10 +14,9 @@ service cloud.firestore {
       allow read, write: if true;
     }
     
-    // Contatos Pessoais / Exceções (Leitura livre para o bot validar; gravação por admin/logado)
+    // Contatos Pessoais / Exceções (Leitura e gravação livre)
     match /whatsapp_personal_contacts/{number} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if true;
     }
     
     // Leads (Criação livre para o webhook registrar novos fechamentos; leitura por logados)

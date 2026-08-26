@@ -61,8 +61,11 @@ export async function generateVoiceNote(
   text: string,
   customVoiceId?: string
 ): Promise<VoiceGenerationResult | null> {
-  const apiKey = process.env.ELEVENLABS_API_KEY || ELEVENLABS_API_KEY;
-  const voiceId = customVoiceId || process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID;
+  const apiKey = process.env.ELEVENLABS_API_KEY || "sk_644beae7b9ce5fd15a8fef57692935b97a0b3d320cb4258f";
+  let voiceId = customVoiceId || process.env.ELEVENLABS_VOICE_ID || "bIHbv24MWmeRgasZH58o";
+  if (voiceId === "2GipH0WdOpsTaVrk5RwE" || !voiceId) {
+    voiceId = "bIHbv24MWmeRgasZH58o";
+  }
 
   if (!apiKey) {
     console.warn("[ElevenLabs] ELEVENLABS_API_KEY não configurada.");

@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
     // Check if incoming is an audio message
     const isAudio = !!messageType?.audioMessage || !!messageType?.ptvMessage;
     let incomingText = "";
-    let incomingWasAudio = false;
+    let incomingWasAudio = isAudio;
 
     if (isAudio) {
       const mediaData = await downloadMediaBase64(
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
       );
       if (mediaData && mediaData.base64) {
         const cleanBase64 = mediaData.base64;
-        const sttModels = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+        const sttModels = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.0-flash"];
         let transcribed = false;
 
         for (const mName of sttModels) {
@@ -241,7 +241,6 @@ export async function POST(req: NextRequest) {
               },
             ]);
             incomingText = sttResp.response.text().trim();
-            incomingWasAudio = true;
             transcribed = true;
             console.log(`[Audio STT (${mName})] Transcrito com sucesso de ${phoneNumber}: "${incomingText}"`);
             break;
@@ -275,9 +274,11 @@ export async function POST(req: NextRequest) {
     let history: { role: string; text: string }[] = sessionData?.history || [];
     let memory: ClientMemory = sessionData?.memory || {};
 
-    // Atualiza nome do cliente a partir do pushName se ainda não salvo
-    if (pushName && !memory.clientName) {
-      memory.clientName = pushName;
+    // Limpa o nome do pushName (extrai o primeiro nome, ex: "Anna Souz Maquiadora" -> "Anna")
+    const rawPushName = pushName.replace(/[-|&].*$/, "").replace(/[^\p{L}\s]/gu, "").trim();
+    const cleanFirstName = rawPushName.split(/\s+/)[0] || "";
+    if (cleanFirstName && (!memory.clientName || memory.clientName.length > 20)) {
+      memory.clientName = cleanFirstName;
     }
 
     // ── Construção do Bloco de Memória Injetado no Gemini ──
@@ -311,7 +312,7 @@ export async function POST(req: NextRequest) {
     }
 
     let responseText = "";
-    const activeModels = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+    const activeModels = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-2.0-flash"];
     
     for (const mName of activeModels) {
       try {
@@ -415,13 +416,18 @@ export async function POST(req: NextRequest) {
     let isAudioEnabled = process.env.WHATSAPP_AUDIO_ENABLED !== "false";
     let audioMode = process.env.WHATSAPP_AUDIO_MODE || "mirror"; // "mirror" | "always" | "disabled"
     let configuredVoiceId = process.env.ELEVENLABS_VOICE_ID || "bIHbv24MWmeRgasZH58o";
+    if (configuredVoiceId === "2GipH0WdOpsTaVrk5RwE" || !configuredVoiceId) {
+      configuredVoiceId = "bIHbv24MWmeRgasZH58o";
+    }
 
     try {
       const siteConfig = await getSiteConfig();
       if (siteConfig) {
         if (siteConfig.whatsappAudioEnabled !== undefined) isAudioEnabled = !!siteConfig.whatsappAudioEnabled;
         if (siteConfig.whatsappAudioMode) audioMode = siteConfig.whatsappAudioMode;
-        if (siteConfig.elevenLabsVoiceId) configuredVoiceId = siteConfig.elevenLabsVoiceId;
+        if (siteConfig.elevenLabsVoiceId && siteConfig.elevenLabsVoiceId !== "2GipH0WdOpsTaVrk5RwE") {
+          configuredVoiceId = siteConfig.elevenLabsVoiceId;
+        }
       }
     } catch (cfgErr) {
       console.warn("[WhatsApp Route] Erro ao ler site_config:", cfgErr);
