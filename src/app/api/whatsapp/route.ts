@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { getClientSession, saveClientSession, isPersonalContact, saveLead, getSiteConfig, ClientMemory } from "@/lib/firestoreRest";
 import { getUpcomingAvailability } from "@/lib/calendar";
 import { sendLeadEmail } from "@/lib/mailer";
 import { generateVoiceNote } from "@/lib/elevenlabs";
@@ -192,17 +191,12 @@ export async function POST(req: NextRequest) {
     ].filter(Boolean);
 
     // Check personal contacts in Firestore (fail-safe)
-    try {
-      for (const phone of phoneCandidates) {
-        const personalRef = doc(db, "whatsapp_personal_contacts", phone);
-        const personalSnap = await getDoc(personalRef);
-        if (personalSnap.exists()) {
-          console.log(`[WhatsApp Webhook] Personal contact detected (${phone}) -> Silencing bot.`);
-          return NextResponse.json({ status: "personal_contact_ignored" }, { status: 200 });
-        }
+    for (const phone of phoneCandidates) {
+      const isPersonal = await isPersonalContact(phone);
+      if (isPersonal) {
+        console.log(`[WhatsApp Webhook] Personal contact detected (${phone}) -> Silencing bot.`);
+        return NextResponse.json({ status: "personal_contact_ignored" }, { status: 200 });
       }
-    } catch (personalErr: any) {
-      console.warn("[WhatsApp Webhook] Could not check personal contacts:", personalErr.message);
     }
 
     const phoneNumber = phoneCandidates[0] || rawJid.replace(/@.*$/, "");
@@ -266,28 +260,10 @@ export async function POST(req: NextRequest) {
 
     const pushName = message?.pushName || "";
 
-    // ── PALÁCIO DE MEMÓRIA DO CLIENTE (Persistência Contínua no Firestore) ──
-    let history: { role: string; text: string }[] = [];
-    let memory: {
-      clientName?: string;
-      preferredPackage?: string;
-      preferredDate?: string;
-      budgetNotes?: string;
-      summary?: string;
-      totalInteractions?: number;
-    } = {};
-
-    const sessionRef = doc(db, "whatsapp_sessions", phoneNumber);
-    try {
-      const sessionSnap = await getDoc(sessionRef);
-      if (sessionSnap.exists()) {
-        const data = sessionSnap.data();
-        history = data.history || [];
-        memory = data.memory || {};
-      }
-    } catch (sessionErr: any) {
-      console.warn("[WhatsApp Webhook] Could not load session from Firestore:", sessionErr.message);
-    }
+    // ── PALÁCIO DE MEMÓRIA DO CLIENTE (Persistência Contínua via REST API) ──
+    const sessionData = await getClientSession(phoneNumber);
+    let history: { role: string; text: string }[] = sessionData?.history || [];
+    let memory: ClientMemory = sessionData?.memory || {};
 
     // Atualiza nome do cliente a partir do pushName se ainda não salvo
     if (pushName && !memory.clientName) {
@@ -367,22 +343,8 @@ export async function POST(req: NextRequest) {
       { role: "model", text: responseText },
     ].slice(-80); // Mantém histórico profundo de até 80 mensagens
 
-    // Salva o Palácio de Memória atualizado no Firestore (permanente)
-    try {
-      await setDoc(
-        sessionRef,
-        {
-          history: updatedHistory,
-          memory,
-          phoneNumber,
-          pushName: pushName || memory.clientName || "",
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    } catch (saveErr: any) {
-      console.warn("[WhatsApp Webhook] Could not save session to Firestore:", saveErr.message);
-    }
+    // Salva o Palácio de Memória atualizado no Firestore de forma assíncrona ultra rápida
+    await saveClientSession(phoneNumber, updatedHistory, memory, pushName || memory.clientName);
 
     const transferMatch = responseText.match(/\[TRANSFER_WHATSAPP([\s\S]*?)\]/);
     let cleanResponse = responseText.replace(/\[TRANSFER_WHATSAPP[\s\S]*?\]/g, "").trim();
@@ -390,16 +352,7 @@ export async function POST(req: NextRequest) {
 
     if (transferMatch) {
       const payload = transferMatch[1].trim();
-      try {
-        await addDoc(collection(db, "leads"), {
-          source: "whatsapp",
-          phoneNumber,
-          payload,
-          createdAt: serverTimestamp(),
-        });
-      } catch (leadDbErr: any) {
-        console.warn("[WhatsApp Webhook] Could not save lead to Firestore:", leadDbErr.message);
-      }
+      await saveLead(phoneNumber, payload);
       sendLeadEmail(payload).catch((e) => console.error("Email error:", e));
 
       const valueMatch = payload.match(/Valor Total Estimado: R\$\s*([\d.,]+)/);
@@ -454,15 +407,14 @@ export async function POST(req: NextRequest) {
     let configuredVoiceId = process.env.ELEVENLABS_VOICE_ID || "bIHbv24MWmeRgasZH58o";
 
     try {
-      const siteConfigSnap = await getDoc(doc(db, "settings", "site_config"));
-      if (siteConfigSnap.exists()) {
-        const cfg = siteConfigSnap.data();
-        if (cfg.whatsappAudioEnabled !== undefined) isAudioEnabled = !!cfg.whatsappAudioEnabled;
-        if (cfg.whatsappAudioMode) audioMode = cfg.whatsappAudioMode;
-        if (cfg.elevenLabsVoiceId) configuredVoiceId = cfg.elevenLabsVoiceId;
+      const siteConfig = await getSiteConfig();
+      if (siteConfig) {
+        if (siteConfig.whatsappAudioEnabled !== undefined) isAudioEnabled = !!siteConfig.whatsappAudioEnabled;
+        if (siteConfig.whatsappAudioMode) audioMode = siteConfig.whatsappAudioMode;
+        if (siteConfig.elevenLabsVoiceId) configuredVoiceId = siteConfig.elevenLabsVoiceId;
       }
     } catch (cfgErr) {
-      console.warn("[WhatsApp Route] Erro ao ler site_config do Firestore:", cfgErr);
+      console.warn("[WhatsApp Route] Erro ao ler site_config:", cfgErr);
     }
 
     const shouldSendAudio =
