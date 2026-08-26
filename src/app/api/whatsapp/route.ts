@@ -264,28 +264,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "no_text" }, { status: 200 });
     }
 
-    // Load or create session in Firestore (24h timeout, fail-safe)
+    const pushName = message?.pushName || "";
+
+    // ── PALÁCIO DE MEMÓRIA DO CLIENTE (Persistência Contínua no Firestore) ──
     let history: { role: string; text: string }[] = [];
+    let memory: {
+      clientName?: string;
+      preferredPackage?: string;
+      preferredDate?: string;
+      budgetNotes?: string;
+      summary?: string;
+      totalInteractions?: number;
+    } = {};
+
     const sessionRef = doc(db, "whatsapp_sessions", phoneNumber);
     try {
       const sessionSnap = await getDoc(sessionRef);
-      const now = Date.now();
-      const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
-
       if (sessionSnap.exists()) {
         const data = sessionSnap.data();
-        const lastActivity = data.updatedAt ? data.updatedAt.seconds * 1000 : 0;
-        if (now - lastActivity < SESSION_TIMEOUT_MS) {
-          history = data.history || [];
-        }
+        history = data.history || [];
+        memory = data.memory || {};
       }
     } catch (sessionErr: any) {
       console.warn("[WhatsApp Webhook] Could not load session from Firestore:", sessionErr.message);
     }
 
+    // Atualiza nome do cliente a partir do pushName se ainda não salvo
+    if (pushName && !memory.clientName) {
+      memory.clientName = pushName;
+    }
+
+    // ── Construção do Bloco de Memória Injetado no Gemini ──
+    let memoryBlock = `\n\n** PALÁCIO DE MEMÓRIA DO CLIENTE (${phoneNumber}) **\n`;
+    if (memory.clientName) memoryBlock += `- Nome do Cliente: ${memory.clientName}\n`;
+    if (memory.preferredPackage) memoryBlock += `- Pacote de Interesse Prévio: ${memory.preferredPackage}\n`;
+    if (memory.preferredDate) memoryBlock += `- Datas Mencionadas Anteriormente: ${memory.preferredDate}\n`;
+    if (memory.summary) memoryBlock += `- Resumo da Conversa: ${memory.summary}\n`;
+
+    if (history.length > 0) {
+      memoryBlock += `- DIRETRIZ DE CONTINUIDADE: Você possui memória viva desta conversa (${history.length} mensagens no histórico). NUNCA cumprimente como se fosse a primeira vez ("Seja bem-vindo ao estúdio..."). Chame o cliente pelo nome com carinho (${memory.clientName || 'Cliente'}) e continue o assunto diretamente de onde pararam com elegância e naturalidade.\n`;
+    } else {
+      memoryBlock += `- DIRETRIZ: Primeiro contato deste cliente. Seja caloroso, acolhedor e apresente os serviços com o requinte do estúdio.\n`;
+    }
+
     // Fetch calendar availability
     const calendarContext = await getUpcomingAvailability();
-    const promptSystem = SYSTEM_INSTRUCTION + `\n\n** STATUS DA AGENDA DO WILLIAM EM TEMPO REAL **\n${calendarContext}`;
+    const promptSystem = SYSTEM_INSTRUCTION + memoryBlock + `\n\n** STATUS DA AGENDA DO WILLIAM EM TEMPO REAL **\n${calendarContext}`;
 
     let normalizedHistory: { role: string; parts: { text: string }[] }[] = [];
     for (const item of history) {
@@ -319,22 +343,39 @@ export async function POST(req: NextRequest) {
     }
 
     if (!responseText) {
-      responseText = "Olá! Seja muito bem-vindo ao Estúdio William Del Barrio. ✨ Em que posso te ajudar hoje?";
+      responseText = memory.clientName 
+        ? `Oi ${memory.clientName}! ✨ Recebi sua mensagem, estou aqui para te ajudar. Me conta, como posso te auxiliar?`
+        : "Olá! Seja muito bem-vindo ao Estúdio William Del Barrio. ✨ Em que posso te ajudar hoje?";
     }
+
+    // ── Atualização Inteligente do Palácio de Memória ──
+    const combinedText = `${incomingText} ${responseText}`.toLowerCase();
+    if (combinedText.includes("retrato autoral")) memory.preferredPackage = "Retrato Autoral (R$ 450)";
+    else if (combinedText.includes("family legacy") || combinedText.includes("família") || combinedText.includes("gestante")) memory.preferredPackage = "Family Legacy (R$ 800)";
+    else if (combinedText.includes("authority") || combinedText.includes("branding") || combinedText.includes("corporativo")) memory.preferredPackage = "Authority & Branding (R$ 1.500)";
+    else if (combinedText.includes("wedding") || combinedText.includes("casamento")) memory.preferredPackage = "Cinematic Wedding (R$ 2.500)";
+    else if (combinedText.includes("namorados") || combinedText.includes("casal")) memory.preferredPackage = "Especial Dia dos Namorados (R$ 550)";
+    else if (combinedText.includes("mães") || combinedText.includes("dia das mães")) memory.preferredPackage = "Especial Dia das Mães (R$ 550)";
+    else if (combinedText.includes("fashion day") || combinedText.includes("flash")) memory.preferredPackage = "Pacote Fashion Day (R$ 250)";
+
+    memory.totalInteractions = (memory.totalInteractions || 0) + 1;
+    memory.summary = `Último assunto: "${incomingText.substring(0, 100)}"`;
 
     const updatedHistory = [
       ...history,
       { role: "user", text: incomingWasAudio ? `[Áudio]: ${incomingText}` : incomingText },
       { role: "model", text: responseText },
-    ].slice(-40);
+    ].slice(-80); // Mantém histórico profundo de até 80 mensagens
 
-    // Save session in Firestore (fail-safe)
+    // Salva o Palácio de Memória atualizado no Firestore (permanente)
     try {
       await setDoc(
         sessionRef,
         {
           history: updatedHistory,
+          memory,
           phoneNumber,
+          pushName: pushName || memory.clientName || "",
           updatedAt: serverTimestamp(),
         },
         { merge: true }
