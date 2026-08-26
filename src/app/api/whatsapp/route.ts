@@ -97,13 +97,17 @@ Sua seleção de fotos e a entrega final das obras serão feitas exclusivamente 
 
 async function sendWhatsAppMessage(to: string, text: string) {
   try {
+    const targetNumber = to.replace("@s.whatsapp.net", "").replace(/[^0-9]/g, "") || to;
     await fetch(`${EVOLUTION_API_URL}/message/sendText/${INSTANCE_NAME}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: EVOLUTION_API_KEY,
       },
-      body: JSON.stringify({ number: to, text }),
+      body: JSON.stringify({
+        number: targetNumber,
+        text,
+      }),
     });
   } catch (err: any) {
     console.error("[Evolution API] Error sending text message:", err.message);
@@ -113,6 +117,7 @@ async function sendWhatsAppMessage(to: string, text: string) {
 async function sendWhatsAppVoiceNote(to: string, audioBase64: string): Promise<boolean> {
   try {
     const rawBase64 = audioBase64.replace(/^data:audio\/[^;]+;base64,/, "");
+    const targetNumber = to.replace("@s.whatsapp.net", "").replace(/[^0-9]/g, "") || to;
 
     const resp = await fetch(`${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${INSTANCE_NAME}`, {
       method: "POST",
@@ -121,7 +126,7 @@ async function sendWhatsAppVoiceNote(to: string, audioBase64: string): Promise<b
         apikey: EVOLUTION_API_KEY,
       },
       body: JSON.stringify({
-        number: to,
+        number: targetNumber,
         audio: rawBase64,
         options: {
           delay: 1200,
