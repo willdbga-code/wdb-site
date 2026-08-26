@@ -1,5 +1,5 @@
-const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDxBfXwvrBt19dQbxqGYkVmFIl_S87VOdU";
-const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "william-site-43963";
+const FIREBASE_API_KEY = "AIzaSyDxBfXwvrBt19dQbxqGYkVmFIl_S87VOdU";
+const FIREBASE_PROJECT_ID = "william-site-43963";
 
 const BASE_URL = "https://firestore.googleapis.com/v1/projects/" + FIREBASE_PROJECT_ID + "/databases/(default)/documents";
 
@@ -115,6 +115,10 @@ export async function saveClientSession(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
+    if (!resp.ok) {
+      console.error("[Firestore REST] Save session failed:", resp.status, await resp.text());
+    }
 
     return resp.ok;
   } catch (err: any) {
